@@ -1,0 +1,9 @@
+
+# Environment
+.env.local
+*.local
+
+node_modules
+dist
+logs
+.vite

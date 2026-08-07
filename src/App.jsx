@@ -1,75 +1,96 @@
-import { Routes, Route } from "react-router-dom";
-import { useAuth } from "./api/AuthContext";
+import { Routes, Route, Navigate, useParams } from "react-router-dom"
+import { useAuth } from "./api/AuthContext"
 
-import Home from "./auth/Home";
-import Login from "./auth/Login";
-import Register from "./auth/Register";
-import Navbar from "./auth/Navbar";
-import ProtectedRoute from "./auth/ProtectedRoute";
+// ─── Praveen's pages, unchanged ───────────────────────────────
+import Login from "./auth/Login"
+import Register from "./auth/Register"
+import ProtectedRoute from "./auth/ProtectedRoute"
+import Asset from "./auth/Asset"
+import SearchStocks from "./auth/Stocks"
 
-import InvestorDashboard from "./auth/InvestorDashboard";
-import Asset from "./auth/Asset";
-import SearchStocks from "./auth/Stocks";
-import UserWatchList from "./auth/UserWatchList";
-import StockDetail from "./auth/StockDetail";
+// ─── Bao's pages ──────────────────────────────────────────────
+import HomePage from "./pages/HomePage"
+import HubPage from "./pages/HubPage"
+import DashboardPage from "./pages/DashboardPage"
+import WatchlistPage from "./pages/WatchlistPage"
+import StockDetailPage from "./pages/StockDetailPage"
+import AlertsPage from "./pages/AlertsPage"
+import PortfolioPage from "./pages/PortfolioPage"
+import ComparePage from "./pages/ComparePage"
+import ProfilePage from "./pages/ProfilePage"
+import TutorialPopup from "./components/ui/TutorialPopup"
+import ChatPanel from "./components/ui/ChatPanel"
+
+// key=symbol remounts the page when the ticker changes, resetting its state
+function StockDetailRoute() {
+   const { symbol } = useParams()
+   return <StockDetailPage key={symbol} />
+}
+
+// Skip /login and /register when already signed in
+function RedirectIfAuthed({ children }) {
+   const { AccessToken } = useAuth()
+   if (AccessToken) return <Navigate to="/home" replace />
+   return children
+}
 
 export default function App() {
-  const { AccessToken, isReady } = useAuth();
+   const { AccessToken } = useAuth()
+   const fallback = AccessToken ? "/home" : "/"
 
-  return (
-    <>
-      {isReady && AccessToken && <Navbar />}
-
+   return (
+      <>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+         <Route path="/" element={<HomePage />} />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <InvestorDashboard />
-            </ProtectedRoute>
-          }
-        />
+         <Route path="/login" element={
+            <RedirectIfAuthed><Login /></RedirectIfAuthed>
+         } />
+         <Route path="/register" element={
+            <RedirectIfAuthed><Register /></RedirectIfAuthed>
+         } />
 
-        <Route
-          path="/asset"
-          element={
-            <ProtectedRoute>
-              <Asset />
-            </ProtectedRoute>
-          }
-        />
+         {/* Login.jsx sends users to /dashboard and ProtectedRoute sends
+             them to /Login, so both are kept working as redirects rather
+             than editing those files. */}
+         <Route path="/Login"     element={<Navigate to="/login" replace />} />
+         <Route path="/dashboard" element={<Navigate to="/home"  replace />} />
 
-        <Route
-          path="/search"
-          element={
-            <ProtectedRoute>
-              <SearchStocks />
-            </ProtectedRoute>
-          }
-        />
+         <Route path="/home" element={
+            <ProtectedRoute><HubPage /></ProtectedRoute>
+         } />
+         <Route path="/InvestorDashboard" element={
+            <ProtectedRoute><DashboardPage /></ProtectedRoute>
+         } />
+         <Route path="/UserWatchList" element={
+            <ProtectedRoute><WatchlistPage /></ProtectedRoute>
+         } />
+         <Route path="/stock/:symbol" element={
+            <ProtectedRoute><StockDetailRoute /></ProtectedRoute>
+         } />
+         <Route path="/alerts" element={
+            <ProtectedRoute><AlertsPage /></ProtectedRoute>
+         } />
+         <Route path="/portfolio" element={
+            <ProtectedRoute><PortfolioPage /></ProtectedRoute>
+         } />
+         <Route path="/compare" element={
+            <ProtectedRoute><ComparePage /></ProtectedRoute>
+         } />
+         <Route path="/profile" element={
+            <ProtectedRoute><ProfilePage /></ProtectedRoute>
+         } />
 
-        <Route
-          path="/watchlist"
-          element={
-            <ProtectedRoute>
-              <UserWatchList />
-            </ProtectedRoute>
-          }
-        />
+         {/* Praveen's earlier screens, still reachable */}
+         <Route path="/asset" element={<Asset />} />
+         <Route path="/SearchStocks" element={<SearchStocks />} />
 
-        <Route
-          path="/stock/:symbol"
-          element={
-            <ProtectedRoute>
-              <StockDetail />
-            </ProtectedRoute>
-          }
-        />
+         <Route path="*" element={<Navigate to={fallback} replace />} />
       </Routes>
-    </>
-  );
+
+      {/* Outside Routes so they survive navigation */}
+      <TutorialPopup />
+      <ChatPanel />
+      </>
+   )
 }

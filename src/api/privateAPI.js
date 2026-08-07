@@ -1,6 +1,7 @@
 import axios from "axios"
 import {refreshEndpoint} from "../api/ViewerAPI"
-const BASE_URL = "http://localhost:8081/"
+// Set VITE_API_URL in .env.local to point at a backend on another machine
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8081/"
 const privateAPI = axios.create({
     baseURL : BASE_URL,
     withCredentials: true
@@ -8,19 +9,43 @@ const privateAPI = axios.create({
 )
 privateAPI.interceptors.request.use((config)=>{
     const token = localStorage.getItem("accessToken")
-        if(token){ 
-            config.headers.Authorization = `Bearer ${token}`; 
-            //console.log(config)      
+        if(token){
+            config.headers.Authorization = `Bearer ${token}`;
+            //console.log(config)
         }
-        return config;  
+        return config;
     },
     (error)=>{
         return Promise.reject(error);
     }
 )
+
+// Concurrent 401s share one refresh instead of racing each other
+let refreshing = null
+
+function refreshOnce(){
+    if(!refreshing){
+        refreshing = refreshEndpoint()
+            .then(response => {
+                const token = response.data.AccessToken
+                localStorage.setItem("accessToken",token)
+                return token
+            })
+            .finally(() => { refreshing = null })
+    }
+    return refreshing
+}
+
+// Refresh failed — sign out instead of keeping a dead token
+function endSession(){
+    localStorage.removeItem("accessToken")
+    if(window.location.pathname !== "/login"){
+        window.location.replace("/login")
+    }
+}
+
 privateAPI.interceptors.response.use(
  (response)=>{
-        console.log(response.data[0])
         return response;
     },
     async (error)=>{
@@ -33,14 +58,15 @@ privateAPI.interceptors.response.use(
 
         if(error.response.status === 401 && !originalRequest._retry){
             originalRequest._retry = true;
-            
-           const newResponse = await refreshEndpoint();
-           originalRequest.headers.Authorization  = `Bearer ${newResponse.data.AccessToken}`
-           
-           localStorage.setItem("accessToken",newResponse.data.AccessToken)
-           
-           return privateAPI(originalRequest)
-            
+
+            try{
+                const token = await refreshOnce()
+                originalRequest.headers.Authorization = `Bearer ${token}`
+                return privateAPI(originalRequest)
+            }catch{
+                endSession()
+                return Promise.reject(error)
+            }
         }
         else if(error.response.status === 403){
             console.log("No Permission")
