@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../api/AuthContext";
-import SearchStocks from "./Stocks";
 import UserWatchList from "./UserWatchList";
 
 export default function InvestorDashboard() {
@@ -15,8 +14,10 @@ export default function InvestorDashboard() {
   return (
     <main className="dashboard-page">
       <section className="dashboard-header">
-        <div>
-          <p className="eyebrow">YOUR MARKET WORKSPACE</p>
+        <div className="dashboard-welcome">
+          <p className="eyebrow">
+            YOUR MARKET WORKSPACE
+          </p>
 
           <h1>
             Welcome back,
@@ -25,95 +26,129 @@ export default function InvestorDashboard() {
           </h1>
 
           <p className="dashboard-subtitle">
-            Follow the market, discover opportunities, and keep your
-            watchlist organised.
+            Track your investor assets, review your
+            watchlist, and keep up with the market.
           </p>
         </div>
 
-        <Link className="dashboard-action" to="/search">
-          Explore markets
-        </Link>
+        <div className="dashboard-header-actions">
+          <Link
+            className="dashboard-action"
+            to="/stocks"
+          >
+            Explore markets
+          </Link>
+
+          <button
+            type="button"
+            className="outline-button"
+            onClick={() =>
+              alert("AI assistant coming soon.")
+            }
+          >
+            AI Assistant
+          </button>
+
+          <Link
+            className="profile-pill"
+            to="/profile"
+          >
+            Profile
+          </Link>
+        </div>
       </section>
 
-      <section className="dashboard-content">
-        <div className="dashboard-section-heading">
-          <div>
-            <p className="eyebrow">MARKET ALERTS</p>
-            <h2>Stay informed</h2>
+      <section className="dashboard-content dashboard-single-column">
+        <section className="dashboard-section watchlist-dashboard-section">
+          <div className="dashboard-section-heading">
+            <div>
+              <p className="eyebrow">YOUR ASSETS</p>
+              <h2>Watchlist</h2>
+            </div>
+
+            <Link to="/watchlist">
+              View all →
+            </Link>
           </div>
 
-          <button type="button" className="alert-settings-button">
-            Alert settings
-          </button>
-        </div>
+          <UserWatchList
+            limit={3}
+            compact={true}
+          />
+        </section>
 
-        <div className="alert-panel">
-          <div className="alert-panel-icon">⌁</div>
+        <section className="dashboard-section">
+          <div className="dashboard-section-heading">
+            <div>
+              <p className="eyebrow">MARKET ALERTS</p>
+              <h2>Stay informed</h2>
+            </div>
 
-          <div className="alert-panel-content">
-            <h3>Price movement alerts</h3>
+            <button
+              type="button"
+              className="outline-button"
+              onClick={() =>
+                alert("Alert settings coming soon.")
+              }
+            >
+              Alert settings
+            </button>
+          </div>
 
-            <p>
-              Receive an alert when an asset in your watchlist increases
-              or decreases significantly.
-            </p>
+          <div className="alert-panel">
+            <div className="alert-panel-icon">
+              ⌁
+            </div>
 
-            <span className="alert-status">
-              Alerts add garam la.
+            <div className="alert-panel-content">
+              <h3>Price movement alerts</h3>
+
+              <p>
+                Receive alerts when assets in your watchlist
+                increase or decrease significantly.
+              </p>
+
+              <span className="alert-status">
+                Alerts will be connected to the backend
+                shortly.
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="latest-news"
+          className="dashboard-section"
+        >
+          <div className="dashboard-section-heading">
+            <div>
+              <p className="eyebrow">
+                MARKET INFORMATION
+              </p>
+
+              <h2>Latest news</h2>
+            </div>
+
+            <span className="section-coming-soon">
+              Coming soon
             </span>
           </div>
-        </div>
-      </section>
 
-      <section className="dashboard-content">
-        <div className="dashboard-section-heading">
-          <div>
-            <p className="eyebrow">DISCOVER</p>
-            <h2>Search the market</h2>
+          <div className="news-placeholder">
+            <div className="news-placeholder-icon">
+              ◌
+            </div>
+
+            <div>
+              <h3>Your news feed is coming soon</h3>
+
+              <p>
+                The latest company news and market updates
+                will appear here.
+              </p>
+            </div>
           </div>
-
-          <Link to="/search">
-            View full search →
-          </Link>
-        </div>
-
-        <SearchStocks />
-      </section>
-
-      <section className="dashboard-content">
-        <div className="dashboard-section-heading">
-          <div>
-            <p className="eyebrow">YOUR ASSETS</p>
-            <h2>Watchlist</h2>
-          </div>
-
-          <Link to="/watchlist">
-            View full watchlist →
-          </Link>
-        </div>
-
-        <UserWatchList />
-      </section>
-
-      <section className="dashboard-content ai-placeholder-section">
-        <div className="dashboard-section-heading">
-          <div>
-            <p className="eyebrow">COMING SOON</p>
-            <h2>AI market assistant</h2>
-          </div>
-        </div>
-
-        <div className="ai-placeholder">
-          <div className="ai-placeholder-icon">✦</div>
-
-          <div>
-            <h3>Hamro AI xittai aunxa</h3>
-            <p>
-              Ask questions about markets, sentiment, news, and your
-              watchlist when the backend feature is ready.
-            </p>
-          </div>
-        </div>
+        </section>
       </section>
     </main>
   );

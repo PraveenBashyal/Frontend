@@ -1,7 +1,8 @@
 import {
-  useState,
-  useContext,
   createContext,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
 
 import { jwtDecode } from "jwt-decode";
@@ -9,60 +10,90 @@ import { jwtDecode } from "jwt-decode";
 const AuthContext = createContext(null);
 
 export default function AuthProvider({ children }) {
-  const savedToken = localStorage.getItem("accessToken");
+  const [AccessToken, setAccessToken] = useState("");
+  const [user, setUser] = useState(null);
+  const [isReady, setIsReady] = useState(false);
 
-  const [AccessToken, setAccessToken] = useState(
-    savedToken || ""
-  );
+  useEffect(() => {
+    const savedToken =
+      localStorage.getItem("accessToken");
 
-  const [user, setUser] = useState(() => {
     if (!savedToken) {
-      return null;
+      setIsReady(true);
+      return;
     }
 
     try {
-      return jwtDecode(savedToken);
-    } catch (error) {
-      console.error("Invalid saved token:", error);
-      localStorage.removeItem("accessToken");
-      return null;
-    }
-  });
+      const decodedUser = jwtDecode(savedToken);
 
-  function saveToken(data) {
+      setAccessToken(savedToken);
+      setUser(decodedUser);
+    } catch (error) {
+      console.error(
+        "Invalid saved access token:",
+        error
+      );
+
+      localStorage.removeItem("accessToken");
+      setAccessToken("");
+      setUser(null);
+    } finally {
+      setIsReady(true);
+    }
+  }, []);
+
+  const saveToken = (data) => {
     const token = data?.AccessToken;
 
     if (!token) {
-      console.error("No AccessToken was returned by the backend.");
+      console.error(
+        "No AccessToken was returned by the backend."
+      );
       return;
     }
 
     try {
       const decodedUser = jwtDecode(token);
 
+      localStorage.setItem("accessToken", token);
+
       setAccessToken(token);
       setUser(decodedUser);
-
-      localStorage.setItem("accessToken", token);
     } catch (error) {
-      console.error("Could not decode token:", error);
+      console.error(
+        "Could not decode access token:",
+        error
+      );
     }
-  }
+  };
 
-  function removeToken() {
+  const updateUser = (updatedUserData) => {
+    setUser((previousUser) => ({
+      ...(previousUser || {}),
+      ...updatedUserData,
+    }));
+  };
+
+  const removeToken = () => {
     localStorage.removeItem("accessToken");
 
     setAccessToken("");
     setUser(null);
-  }
+  };
+
+  const isAuthenticated =
+    Boolean(AccessToken) && Boolean(user);
 
   return (
     <AuthContext.Provider
       value={{
-        saveToken,
-        removeToken,
         AccessToken,
         user,
+        isReady,
+        isAuthenticated,
+        saveToken,
+        updateUser,
+        removeToken,
       }}
     >
       {children}

@@ -1,95 +1,367 @@
-import {useState,useEffect} from "react"
-import {getStocks,getCrypto,getETF,addStockToWatchlist} from "../api/ViewerAPI"
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
+import {
+  getStocks,
+  getCrypto,
+  getETF,
+} from "../api/ViewerAPI";
 
-export default function SearchStocks(){
-     
-    const [inputText,setInputText] = useState("")
-    const [stockList,setStockList] = useState([])
-    const [watchlist,setWatchList] = useState([])
-    const [optionType,setOptionType] = useState("Stock")
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(
+  ""
+);
 
-    useEffect(()=>{
+function unwrapResponse(response) {
+  return response?.data ?? response;
+}
 
-        if(inputText.trim() ==""){
-            setStockList([])
-            return
-        }
+function extractAssets(response) {
+  const data = unwrapResponse(response);
 
+  if (Array.isArray(data)) {
+    return data;
+  }
 
-        if(optionType === "Stock"){
-            const stocks = async ()=>{
-            const data_list = await getStocks(inputText)
-            setStockList(data_list)
-        }
-            stocks()
+  const possibleLists = [
+    data?.assets,
+    data?.data,
+    data?.results,
+    data?.items,
+    data?.stocks,
+    data?.crypto,
+    data?.etfs,
+    data?.content,
+  ];
 
-        }else if(optionType === "Crypto"){
-            const crypto = async()=>{
-                const response = await getCrypto(inputText)
-                setStockList(response)
-            }
-            
-            crypto()
-        }else if(optionType === "ETF"){
-            const etf = async()=>{
-                const response = await getETF(inputText)
-                setStockList(response)
-            }
+  return (
+    possibleLists.find((list) =>
+      Array.isArray(list)
+    ) || []
+  );
+}
 
-            etf()
-        }
+function getSymbol(asset) {
+  return (
+    asset?.symbol ||
+    asset?.Symbol ||
+    asset?.ticker ||
+    asset?.Ticker ||
+    asset?.code ||
+    ""
+  );
+}
 
-        
+function getName(asset) {
+  const symbol = getSymbol(asset);
 
-       
-  
-    },[inputText])
+  return (
+    asset?.name ||
+    asset?.Name ||
+    asset?.companyName ||
+    asset?.company_name ||
+    asset?.longName ||
+    asset?.shortName ||
+    asset?.displayName ||
+    asset?.description ||
+    symbol ||
+    "Asset"
+  );
+}
 
-   
+function getType(asset, fallbackType) {
+  return (
+    asset?.type ||
+    asset?.assetType ||
+    asset?.asset_type ||
+    asset?.category ||
+    fallbackType
+  );
+}
 
-    const handleSubmit = (e)=>{
-        e.preventDefault()
-    }
+function normaliseAsset(asset, fallbackType) {
+  return {
+    ...asset,
+    symbol: getSymbol(asset),
+    name: getName(asset),
+    type: getType(asset, fallbackType),
+  };
+}
 
-    function addToWatchlist(asset){
-        if(watchlist.some((item)=>item.symbol === asset.symbol)){
-            return
-        }
-        setWatchList((prev)=>[...prev,asset])
+function removeDuplicates(assets) {
+  return Array.from(
+    new Map(
+      assets
+        .filter((asset) => asset.symbol)
+        .map((asset) => [
+          asset.symbol.toUpperCase(),
+          asset,
+        ])
+    ).values()
+  );
+}
 
-        const stockData ={
-            "symbol" : asset.symbol,
-            "securityName" : asset.securityName,
-            "type" : optionType
-        }
-        const data = async()=>{
-            const response = await addStockToWatchlist(stockData)
-        }
-
-        data()
-    }
-
-
-
-    return(
-        <form onSubmit = {handleSubmit}>
-        <h1>Get the stock</h1>
-            <label>Type: </label>
-            <select value = {optionType} onChange={(e)=>setOptionType(e.target.value)}>
-                <option default value="Stock">Stock</option>
-                <option value="Crypto">Crypto</option>
-                <option value="ETF">ETF</option>
-            </select><br></br>
-            <label>Enter the {optionType}: </label>
-            <input value={inputText} onChange = {(e)=>setInputText(e.target.value)}></input><br></br>
-            <ul>{stockList.map((item,index)=>(
-                <div key={index}>
-                <li>{item.symbol} <br></br>{item.securityName} <br></br>{item.type}</li>
-                <button onClick ={()=>addToWatchlist(item)}>Add</button>
-                {console.log(stockList)}
-                </div>
-            ))}</ul>
-        </form>
+async function loadByLetters(
+  requestFunction,
+  assetType
+) {
+  const responses = await Promise.all(
+    LETTERS.map((letter) =>
+      requestFunction(letter)
     )
+  );
+
+  const assets = responses.flatMap((response) =>
+    extractAssets(response).map((asset) =>
+      normaliseAsset(asset, assetType)
+    )
+  );
+
+  return removeDuplicates(assets);
+}
+
+function matchesType(asset, selectedType) {
+  if (selectedType === "all") {
+    return true;
+  }
+
+  const type = String(
+    asset.type || ""
+  ).toLowerCase();
+
+  if (selectedType === "stocks") {
+    return (
+      type.includes("stock") ||
+      type.includes("equity") ||
+      type.includes("share")
+    );
+  }
+
+  if (selectedType === "etfs") {
+    return (
+      type.includes("etf") ||
+      type.includes("exchange")
+    );
+  }
+
+  if (selectedType === "crypto") {
+    return (
+      type.includes("crypto") ||
+      type.includes("coin") ||
+      type.includes("digital")
+    );
+  }
+
+  return true;
+}
+
+export default function Stocks() {
+  const [assets, setAssets] = useState([]);
+
+  const [selectedType, setSelectedType] =
+    useState("all");
+
+  const [searchTerm, setSearchTerm] =
+    useState("");
+
+  const [loading, setLoading] = useState(true);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  useEffect(() => {
+    loadAllAssets();
+  }, []);
+
+  const loadAllAssets = async () => {
+    try {
+      setLoading(true);
+      setErrorMessage("");
+
+      const [
+        stocks,
+        crypto,
+        etfs,
+      ] = await Promise.all([
+        loadByLetters(
+          getStocks,
+          "Stock"
+        ),
+
+        loadByLetters(
+          getCrypto,
+          "Crypto"
+        ),
+
+        loadByLetters(
+          getETF,
+          "ETF"
+        ),
+      ]);
+
+      const allAssets = removeDuplicates([
+        ...stocks,
+        ...crypto,
+        ...etfs,
+      ]);
+
+      setAssets(allAssets);
+    } catch (error) {
+      console.error(
+        "Could not load assets:",
+        error
+      );
+
+      setAssets([]);
+
+      setErrorMessage(
+        "Could not load the available assets."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredAssets = useMemo(() => {
+    const search = searchTerm
+      .trim()
+      .toLowerCase();
+
+    return assets
+      .filter((asset) =>
+        matchesType(asset, selectedType)
+      )
+      .filter((asset) => {
+        if (!search) {
+          return true;
+        }
+
+        return (
+          asset.symbol
+            .toLowerCase()
+            .includes(search) ||
+          asset.name
+            .toLowerCase()
+            .includes(search)
+        );
+      })
+      .sort((first, second) =>
+        first.symbol
+          .toLowerCase()
+          .localeCompare(
+            second.symbol.toLowerCase()
+          )
+      );
+  }, [
+    assets,
+    selectedType,
+    searchTerm,
+  ]);
+
+  return (
+    <main className="stocks-page">
+      <p className="eyebrow">
+        EXPLORE MARKETS
+      </p>
+
+      <h1>Explore assets</h1>
+
+      <p className="stocks-intro">
+        Browse stocks, ETFs, and crypto assets
+        alphabetically.
+      </p>
+
+      <section className="asset-search-panel">
+        <div className="asset-search-wrapper">
+          <span className="asset-search-icon">
+            ⌕
+          </span>
+
+          <input
+            className="asset-search-input"
+            type="search"
+            placeholder="Search by symbol or name..."
+            value={searchTerm}
+            onChange={(event) =>
+              setSearchTerm(event.target.value)
+            }
+          />
+        </div>
+
+        <select
+          className="asset-type-select"
+          value={selectedType}
+          onChange={(event) =>
+            setSelectedType(event.target.value)
+          }
+        >
+          <option value="all">
+            All assets
+          </option>
+
+          <option value="stocks">
+            Stocks
+          </option>
+
+          <option value="etfs">
+            ETFs
+          </option>
+
+          <option value="crypto">
+            Crypto
+          </option>
+        </select>
+      </section>
+
+      {errorMessage && (
+        <p className="error-message">
+          {errorMessage}
+        </p>
+      )}
+
+      {loading ? (
+        <section className="asset-empty-state">
+          <div className="asset-loading-spinner" />
+
+          <p>
+            Loading assets by alphabet...
+          </p>
+        </section>
+      ) : filteredAssets.length === 0 ? (
+        <section className="asset-empty-state">
+          <h2>No assets found</h2>
+
+          <p>
+            Try another search or choose a different
+            category.
+          </p>
+        </section>
+      ) : (
+        <section className="asset-list">
+          {filteredAssets.map((asset) => (
+            <Link
+              key={`${asset.symbol}-${asset.name}`}
+              to={`/stock/${encodeURIComponent(
+                asset.symbol
+              )}`}
+              className="asset-list-item"
+            >
+              <strong className="asset-list-symbol">
+                {asset.symbol.toUpperCase()}
+              </strong>
+
+              <div className="asset-list-details">
+                <h3>{asset.name}</h3>
+
+                <span>{asset.type}</span>
+              </div>
+
+              <span className="asset-list-arrow">
+                →
+              </span>
+            </Link>
+          ))}
+        </section>
+      )}
+    </main>
+  );
 }
