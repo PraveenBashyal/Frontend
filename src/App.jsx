@@ -17,6 +17,14 @@ import Stocks from "./auth/Stocks";
 import UserWatchlist from "./auth/UserWatchlist";
 import StockDetail from "./auth/StockDetail";
 
+// ── Bao ── everything from src/features. The three additions to this
+// file are marked below: these imports, two routes, and the two panels
+// rendered outside <Routes>.
+import PortfolioPage from "./features/portfolio/PortfolioPage";
+import ComparePage from "./features/compare/ComparePage";
+import ChatPanel from "./features/assistant/ChatPanel";
+import TutorialPopup from "./features/tutorial/TutorialPopup";
+
 function AppLayout() {
   const location = useLocation();
 
@@ -36,6 +44,10 @@ function AppLayout() {
       {!hideNavbar && <Navbar />}
 
       <Outlet />
+
+      {/* ── Bao ── outside the routes so navigating keeps their state */}
+      {!hideNavbar && <ChatPanel />}
+      {!hideNavbar && <TutorialPopup />}
     </>
   );
 }
@@ -93,6 +105,18 @@ export default function App() {
           path="/stock/:symbol"
           element={<StockDetail />}
         />
+
+        {/* ── Bao: routes ── start ─────────────────────────────── */}
+        <Route
+          path="/portfolio"
+          element={<PortfolioPage />}
+        />
+
+        <Route
+          path="/compare"
+          element={<ComparePage />}
+        />
+        {/* ── Bao: routes ── end ───────────────────────────────── */}
       </Route>
     </Routes>
   );
