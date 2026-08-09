@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { Link } from "react-router-dom";
 
 import {
+  addStockToWatchlist,
   getStocks,
   getCrypto,
   getETF,
 } from "../api/ViewerAPI";
 
-const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(
-  ""
-);
+const LETTERS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 function unwrapResponse(response) {
   return response?.data ?? response;
@@ -59,6 +64,7 @@ function getName(asset) {
     asset?.Name ||
     asset?.companyName ||
     asset?.company_name ||
+    asset?.securityName ||
     asset?.longName ||
     asset?.shortName ||
     asset?.displayName ||
@@ -168,6 +174,15 @@ export default function Stocks() {
   const [errorMessage, setErrorMessage] =
     useState("");
 
+  const [addingSymbol, setAddingSymbol] =
+    useState("");
+
+  const [addedSymbols, setAddedSymbols] =
+    useState(new Set());
+
+  const [watchlistMessage, setWatchlistMessage] =
+    useState("");
+
   useEffect(() => {
     loadAllAssets();
   }, []);
@@ -218,6 +233,62 @@ export default function Stocks() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addToWatchlist = async (event, asset) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const symbol = asset.symbol.toUpperCase();
+
+    if (addedSymbols.has(symbol)) {
+      return;
+    }
+
+    try {
+      setAddingSymbol(symbol);
+      setWatchlistMessage("");
+      setErrorMessage("");
+
+      await addStockToWatchlist({
+        symbol,
+        securityName: asset.name,
+        type: asset.type,
+      });
+
+      setAddedSymbols((previousSymbols) => {
+        const nextSymbols = new Set(
+          previousSymbols
+        );
+
+        nextSymbols.add(symbol);
+
+        return nextSymbols;
+      });
+
+      setWatchlistMessage(
+        `${symbol} was added to your watchlist.`
+      );
+    } catch (error) {
+      console.error(
+        "Could not add asset to watchlist:",
+        error
+      );
+
+      const backendMessage =
+        error?.response?.data?.message ||
+        error?.response?.data;
+
+      if (typeof backendMessage === "string") {
+        setErrorMessage(backendMessage);
+      } else {
+        setErrorMessage(
+          `Could not add ${symbol} to your watchlist.`
+        );
+      }
+    } finally {
+      setAddingSymbol("");
     }
   };
 
@@ -312,6 +383,12 @@ export default function Stocks() {
         </select>
       </section>
 
+      {watchlistMessage && (
+        <p className="success-message">
+          {watchlistMessage}
+        </p>
+      )}
+
       {errorMessage && (
         <p className="error-message">
           {errorMessage}
@@ -337,29 +414,68 @@ export default function Stocks() {
         </section>
       ) : (
         <section className="asset-list">
-          {filteredAssets.map((asset) => (
-            <Link
-              key={`${asset.symbol}-${asset.name}`}
-              to={`/stock/${encodeURIComponent(
-                asset.symbol
-              )}`}
-              className="asset-list-item"
-            >
-              <strong className="asset-list-symbol">
-                {asset.symbol.toUpperCase()}
-              </strong>
+          {filteredAssets.map((asset) => {
+            const symbol =
+              asset.symbol.toUpperCase();
 
-              <div className="asset-list-details">
-                <h3>{asset.name}</h3>
+            const isAdding =
+              addingSymbol === symbol;
 
-                <span>{asset.type}</span>
-              </div>
+            const isAdded =
+              addedSymbols.has(symbol);
 
-              <span className="asset-list-arrow">
-                →
-              </span>
-            </Link>
-          ))}
+            return (
+              <article
+                key={`${symbol}-${asset.name}`}
+                className="asset-list-item"
+              >
+                <Link
+                  to={`/stock/${encodeURIComponent(
+                    symbol
+                  )}`}
+                  className="asset-list-main"
+                >
+                  <strong className="asset-list-symbol">
+                    {symbol}
+                  </strong>
+
+                  <div className="asset-list-details">
+                    <h3>{asset.name}</h3>
+
+                    <span>{asset.type}</span>
+                  </div>
+
+                  <span className="asset-list-arrow">
+                    →
+                  </span>
+                </Link>
+
+                <button
+                  type="button"
+                  className={
+                    isAdded
+                      ? "watchlist-add-button added"
+                      : "watchlist-add-button"
+                  }
+                  disabled={
+                    isAdding || isAdded
+                  }
+                  onClick={(event) =>
+                    addToWatchlist(
+                      event,
+                      asset
+                    )
+                  }
+                >
+                  {isAdding
+                    ? "Adding..."
+                    : isAdded
+                    ? "Added"
+                    : "Add to watchlist"}
+                </button>
+              </article>
+            );
+          })}
         </section>
       )}
     </main>

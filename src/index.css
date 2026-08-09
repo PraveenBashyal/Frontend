@@ -1294,6 +1294,37 @@ main > form a {
   }
 }
 
+.asset-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.asset-list-main {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.watchlist-add-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  background: var(--green);
+  color: #101609;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.watchlist-add-button:hover {
+  background: var(--green-dark);
+}
+
 /* ═══════════════════════════════════════════════════════════════
    BAO'S STYLES START — everything above this line is Praveen's.
 
