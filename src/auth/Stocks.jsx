@@ -13,6 +13,10 @@ import {
   getETF,
 } from "../api/ViewerAPI";
 
+// ── Bao ── sort dropdown next to the existing type filter
+import SortSelect from "../features/browse/SortSelect";
+import { sortAssets } from "../features/browse/assetFilters";
+
 const LETTERS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -168,6 +172,9 @@ export default function Stocks() {
 
   const [searchTerm, setSearchTerm] =
     useState("");
+
+  // ── Bao ──
+  const [sortMode, setSortMode] = useState("az");
 
   const [loading, setLoading] = useState(true);
 
@@ -328,6 +335,12 @@ export default function Stocks() {
     searchTerm,
   ]);
 
+  // ── Bao ── applies the chosen order on top of the filtering above
+  const sortedAssets = useMemo(
+    () => sortAssets(filteredAssets, sortMode),
+    [filteredAssets, sortMode]
+  );
+
   return (
     <main className="stocks-page">
       <p className="eyebrow">
@@ -381,6 +394,12 @@ export default function Stocks() {
             Crypto
           </option>
         </select>
+
+        {/* ── Bao ── */}
+        <SortSelect
+          value={sortMode}
+          onChange={setSortMode}
+        />
       </section>
 
       {watchlistMessage && (
@@ -403,7 +422,7 @@ export default function Stocks() {
             Loading assets by alphabet...
           </p>
         </section>
-      ) : filteredAssets.length === 0 ? (
+      ) : sortedAssets.length === 0 ? (
         <section className="asset-empty-state">
           <h2>No assets found</h2>
 
@@ -414,7 +433,7 @@ export default function Stocks() {
         </section>
       ) : (
         <section className="asset-list">
-          {filteredAssets.map((asset) => {
+          {sortedAssets.map((asset) => {
             const symbol =
               asset.symbol.toUpperCase();
 

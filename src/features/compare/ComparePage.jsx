@@ -58,6 +58,14 @@ function Picker({ side, value, onPick }) {
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
 
+      {/* A placeholder reads as a hint, not a choice, which matters when
+          this page is opened from an asset with one side already set. */}
+      {value && (
+        <p className="compare-picked">
+          Selected <strong>{value}</strong>
+        </p>
+      )}
+
       {open && results.length > 0 && (
         <ul className="compare-results">
           {results.map((asset) => (

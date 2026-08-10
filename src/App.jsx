@@ -14,7 +14,10 @@ import Register from "./auth/Register";
 import Profile from "./auth/Profile";
 import News from "./auth/News";
 import Stocks from "./auth/Stocks";
-import UserWatchlist from "./auth/UserWatchlist";
+// ── Bao ── capital L, matching the real filename. With the old spelling
+// Vite tracked the file twice and served a stale copy after every edit,
+// and the import would not resolve at all on a case-sensitive system.
+import UserWatchlist from "./auth/UserWatchList";
 import StockDetail from "./auth/StockDetail";
 
 // ── Bao ── everything from src/features. The three additions to this

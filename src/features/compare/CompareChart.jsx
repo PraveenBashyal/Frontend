@@ -67,6 +67,13 @@ export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }
     b: b.get(t) ?? null,
   }));
 
+  // A thinly traded asset returns a handful of ticks at one price, which
+  // draws as a flat line on the 0% gridline and reads as a missing series.
+  const thin = [
+    a.size > 0 && a.size < 5 ? labelA : null,
+    b.size > 0 && b.size < 5 ? labelB : null,
+  ].filter(Boolean);
+
   return (
     <section className="stock-chart-card compare-chart">
       <header className="compare-chart-header">
@@ -77,6 +84,15 @@ export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }
           <span style={{ color: colors.accent }}>● {labelB}</span>
         </div>
       </header>
+
+      {thin.length > 0 && (
+        <p className="compare-thin">
+          {thin.join(" and ")} {thin.length > 1 ? "have" : "has"} very few
+          trades today, so{" "}
+          {thin.length > 1 ? "those lines sit" : "that line sits"} flat rather
+          than showing a trend.
+        </p>
+      )}
 
       {data.length === 0 ? (
         <p className="portfolio-message">No price history to compare yet</p>

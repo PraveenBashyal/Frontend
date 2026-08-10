@@ -17,6 +17,9 @@ import {
   getData,
 } from "../api/ViewerAPI";
 
+// ── Bao ── watchlist and compare buttons under the price
+import AssetActions from "../features/browse/AssetActions";
+
 function getNewsList(response) {
   const data = response?.data ?? response;
 
@@ -116,15 +119,38 @@ export default function StockDetail() {
       setLoading(true);
       setErrorMessage("");
 
+      // ── Bao ── allSettled, not all. The description endpoint returns
+      // 400 for any symbol that is not already in the watchlist, and with
+      // all() that single rejection threw away the price and the news
+      // that had arrived fine, blanking the whole page.
       const [
-        descriptionResponse,
-        newsResponse,
-        marketResponse,
-      ] = await Promise.all([
+        descriptionResult,
+        newsResult,
+        marketResult,
+      ] = await Promise.allSettled([
         getTitle(symbol),
         getNews(symbol),
         getData(symbol),
       ]);
+
+      const valueOf = (result) =>
+        result.status === "fulfilled"
+          ? result.value
+          : null;
+
+      const descriptionResponse = valueOf(
+        descriptionResult
+      );
+
+      const newsResponse = valueOf(newsResult);
+      const marketResponse = valueOf(marketResult);
+
+      // Only the price matters enough to warn about
+      if (!marketResponse) {
+        setErrorMessage(
+          "Could not load prices for this asset."
+        );
+      }
 
       const descriptionData =
         descriptionResponse?.data;
@@ -234,6 +260,42 @@ export default function StockDetail() {
     previous?.close ??
     marketData?.chartPreviousClose;
 
+  // ── Bao ── the series is 1-minute candles, so `latest` describes one
+  // minute, not the session. Reading the day figures off it made open,
+  // high and low identical whenever nothing traded in that last minute.
+  // Yahoo sends the real ones in meta; only open has to be derived.
+  const numbers = (key) =>
+    prices
+      .map((point) => point[key])
+      .filter((value) => typeof value === "number");
+
+  const highest = numbers("high");
+  const lowest = numbers("low");
+  const volumes = numbers("volume");
+
+  const dayOpen = prices[0]?.open;
+
+  const dayHigh =
+    marketData?.regularMarketDayHigh ??
+    (highest.length
+      ? Math.max(...highest)
+      : undefined);
+
+  const dayLow =
+    marketData?.regularMarketDayLow ??
+    (lowest.length
+      ? Math.min(...lowest)
+      : undefined);
+
+  const dayVolume =
+    marketData?.regularMarketVolume ??
+    (volumes.length
+      ? volumes.reduce(
+          (total, value) => total + value,
+          0
+        )
+      : undefined);
+
   const priceChange =
     currentPrice !== undefined &&
     previousClose !== undefined
@@ -306,6 +368,13 @@ export default function StockDetail() {
             )}
           </div>
         </div>
+
+        {/* ── Bao ── */}
+        <AssetActions
+          symbol={symbol?.toUpperCase()}
+          name={companyName}
+          type={marketData?.instrumentType}
+        />
       </section>
 
       {errorMessage && (
@@ -414,24 +483,25 @@ export default function StockDetail() {
       </section>
 
       <section className="stock-stats-grid">
+        {/* ── Bao ── day figures, not the last minute's */}
         <div className="stock-stat-card">
           <span>Open</span>
           <strong>
-            {formatPrice(latest?.open)}
+            {formatPrice(dayOpen)}
           </strong>
         </div>
 
         <div className="stock-stat-card">
           <span>Day high</span>
           <strong>
-            {formatPrice(latest?.high)}
+            {formatPrice(dayHigh)}
           </strong>
         </div>
 
         <div className="stock-stat-card">
           <span>Day low</span>
           <strong>
-            {formatPrice(latest?.low)}
+            {formatPrice(dayLow)}
           </strong>
         </div>
 
@@ -445,7 +515,7 @@ export default function StockDetail() {
         <div className="stock-stat-card">
           <span>Volume</span>
           <strong>
-            {formatNumber(latest?.volume)}
+            {formatNumber(dayVolume)}
           </strong>
         </div>
 

@@ -6,6 +6,10 @@ import {
   deteleWatchlist,
 } from "../api/ViewerAPI";
 
+// ── Bao ── search/filter/sort toolbar and the live price on each row
+import AssetPrice from "../features/browse/AssetPrice";
+import { useWatchlistTools } from "../features/browse/useWatchlistTools";
+
 export default function UserWatchList({
   limit = 0,
   compact = false,
@@ -74,10 +78,15 @@ export default function UserWatchList({
     }
   };
 
+  // ── Bao ── the toolbar is for the full page only; the dashboard shows a
+  // short preview, so it keeps the original order and just gains prices.
+  const { toolbar, visible, prices } =
+    useWatchlistTools(usersWatchList);
+
   const displayedItems =
     limit > 0
       ? usersWatchList.slice(0, limit)
-      : usersWatchList;
+      : visible;
 
   if (loading) {
     return (
@@ -123,6 +132,10 @@ export default function UserWatchList({
   }
 
   return (
+    <>
+    {/* ── Bao ── */}
+    {limit === 0 && toolbar}
+
     <div
       className={
         compact
@@ -160,17 +173,32 @@ export default function UserWatchList({
             )}
           </div>
 
-          <button
-            type="button"
-            className="watchlist-remove-button"
-            onClick={(event) =>
-              deleteStock(event, item.symbol)
-            }
-          >
-            Remove
-          </button>
+          {/* ── Bao ── */}
+          <div className="watchlist-item-side">
+            <AssetPrice
+              value={prices[item.symbol]}
+            />
+
+            <button
+              type="button"
+              className="watchlist-remove-button"
+              onClick={(event) =>
+                deleteStock(event, item.symbol)
+              }
+            >
+              Remove
+            </button>
+          </div>
         </article>
       ))}
+
+      {/* ── Bao ── everything filtered away */}
+      {displayedItems.length === 0 && (
+        <p className="watchlist-no-match">
+          No asset in your watchlist matches
+          these filters.
+        </p>
+      )}
 
       {limit > 0 &&
         usersWatchList.length > limit && (
@@ -183,5 +211,6 @@ export default function UserWatchList({
           </button>
         )}
     </div>
+    </>
   );
 }
