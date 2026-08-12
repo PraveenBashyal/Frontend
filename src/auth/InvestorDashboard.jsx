@@ -49,12 +49,7 @@ export default function InvestorDashboard() {
             AI Assistant
           </button>
 
-          <Link
-            className="profile-pill"
-            to="/profile"
-          >
-            Profile
-          </Link>
+          
         </div>
       </section>
 
@@ -120,34 +115,7 @@ export default function InvestorDashboard() {
           id="latest-news"
           className="dashboard-section"
         >
-          <div className="dashboard-section-heading">
-            <div>
-              <p className="eyebrow">
-                MARKET INFORMATION
-              </p>
-
-              <h2>Latest news</h2>
-            </div>
-
-            <span className="section-coming-soon">
-              Coming soon
-            </span>
-          </div>
-
-          <div className="news-placeholder">
-            <div className="news-placeholder-icon">
-              ◌
-            </div>
-
-            <div>
-              <h3>Your news feed is coming soon</h3>
-
-              <p>
-                The latest company news and market updates
-                will appear here.
-              </p>
-            </div>
-          </div>
+          
         </section>
       </section>
     </main>

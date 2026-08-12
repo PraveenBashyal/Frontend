@@ -1,12 +1,10 @@
 import {
-  Outlet,
   Route,
   Routes,
   useLocation,
 } from "react-router-dom";
 
 import Navbar from "./auth/Navbar";
-
 import Home from "./auth/Home";
 import InvestorDashboard from "./auth/InvestorDashboard";
 import Login from "./auth/Login";
@@ -14,18 +12,12 @@ import Register from "./auth/Register";
 import Profile from "./auth/Profile";
 import News from "./auth/News";
 import Stocks from "./auth/Stocks";
-// ── Bao ── capital L, matching the real filename. With the old spelling
-// Vite tracked the file twice and served a stale copy after every edit,
-// and the import would not resolve at all on a case-sensitive system.
-import UserWatchlist from "./auth/UserWatchList";
+import UserWatchList from "./auth/UserWatchList";
 import StockDetail from "./auth/StockDetail";
+import InterestSelection from "./auth/InterestSelection";
 
-// ── Bao ── everything from src/features. The three additions to this
-// file are marked below: these imports, two routes, and the two panels
-// rendered outside <Routes>.
 import PortfolioPage from "./features/portfolio/PortfolioPage";
 import ComparePage from "./features/compare/ComparePage";
-import AssetSummaryPage from "./features/summary/AssetSummaryPage";
 import ChatPanel from "./features/assistant/ChatPanel";
 import TutorialPopup from "./features/tutorial/TutorialPopup";
 
@@ -37,6 +29,7 @@ function AppLayout() {
     "/home",
     "/login",
     "/register",
+    "/interests",
   ];
 
   const hideNavbar = pagesWithoutNavbar.includes(
@@ -47,19 +40,11 @@ function AppLayout() {
     <>
       {!hideNavbar && <Navbar />}
 
-      <Outlet />
-
-      {/* ── Bao ── outside the routes so navigating keeps their state */}
       {!hideNavbar && <ChatPanel />}
-      {!hideNavbar && <TutorialPopup />}
-    </>
-  );
-}
 
-export default function App() {
-  return (
-    <Routes>
-      <Route element={<AppLayout />}>
+      {!hideNavbar && <TutorialPopup />}
+
+      <Routes>
         <Route
           path="/"
           element={<Home />}
@@ -81,18 +66,23 @@ export default function App() {
         />
 
         <Route
+          path="/interests"
+          element={<InterestSelection />}
+        />
+
+        <Route
           path="/dashboard"
           element={<InvestorDashboard />}
         />
 
         <Route
-          path="/news"
-          element={<News />}
+          path="/profile"
+          element={<Profile />}
         />
 
         <Route
-          path="/profile"
-          element={<Profile />}
+          path="/news"
+          element={<News />}
         />
 
         <Route
@@ -102,7 +92,7 @@ export default function App() {
 
         <Route
           path="/watchlist"
-          element={<UserWatchlist />}
+          element={<UserWatchList />}
         />
 
         <Route
@@ -110,7 +100,6 @@ export default function App() {
           element={<StockDetail />}
         />
 
-        {/* ── Bao: routes ── start ─────────────────────────────── */}
         <Route
           path="/portfolio"
           element={<PortfolioPage />}
@@ -120,13 +109,11 @@ export default function App() {
           path="/compare"
           element={<ComparePage />}
         />
-
-        <Route
-          path="/summary/:symbol"
-          element={<AssetSummaryPage />}
-        />
-        {/* ── Bao: routes ── end ───────────────────────────────── */}
-      </Route>
-    </Routes>
+      </Routes>
+    </>
   );
+}
+
+export default function App() {
+  return <AppLayout />;
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 
 import { useAuth } from "../../api/AuthContext";
-import { sendChatMessage } from "../../lib/chat";
+import { sendChatMessage } from "../../lib/portfolio";
 
 // Slide-over assistant, answering from the app's own data.
 // Rendered outside the routes so navigating keeps the conversation.

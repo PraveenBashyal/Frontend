@@ -70,14 +70,6 @@ export const updatePassword = async (
   return response.data;
 };
 
-export const deleteAccount = async () => {
-  const response = await privateAPI.delete(
-    "investor/account"
-  );
-
-  return response.data;
-};
-
 export const getAsset = async (assetType) => {
   const response = await privateAPI.get(
     `/assets/asset?type=${assetType}`

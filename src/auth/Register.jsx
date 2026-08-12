@@ -16,7 +16,9 @@ export default function Register() {
   });
 
   const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage, setSuccessMessage] =
+    useState("");
+
   const [isLoading, setIsLoading] = useState(false);
 
   function handleChange(event) {
@@ -36,25 +38,45 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      await InvestorRegistration(inputList);
+      const response =
+        await InvestorRegistration(inputList);
+
+      const token =
+        response?.data?.accessToken ||
+        response?.data?.AccessToken;
+
+      if (token) {
+        localStorage.setItem(
+          "accessToken",
+          token
+        );
+      }
+
+      localStorage.setItem(
+        "newUserUsername",
+        inputList.username
+      );
 
       setSuccessMessage(
-        "Account created successfully. Redirecting to home page..."
+        "Account created successfully. Choose your interests next."
       );
 
       setTimeout(() => {
-        navigate("/");
-      }, 1800);
+        navigate("/interests");
+      }, 1000);
     } catch (error) {
-      console.error("Registration failed:", error);
+      console.error(
+        "Registration failed:",
+        error
+      );
 
       const backendMessage =
-        error.response?.data?.message ||
-        error.response?.data;
+        error?.response?.data?.message ||
+        error?.response?.data;
 
       if (typeof backendMessage === "string") {
         setErrorMessage(backendMessage);
-      } else if (error.response?.status === 400) {
+      } else if (error?.response?.status === 400) {
         setErrorMessage(
           "Please check your details and try again."
         );
@@ -71,12 +93,15 @@ export default function Register() {
   return (
     <main>
       <form onSubmit={handleSubmit}>
-        <p className="eyebrow">JOIN THE PLATFORM</p>
+        <p className="eyebrow">
+          JOIN THE PLATFORM
+        </p>
 
         <h1>Create an account</h1>
 
         <p>
-          Build your personal market workspace and watchlist.
+          Build your personal market workspace
+          and watchlist.
         </p>
 
         <label htmlFor="firstName">
@@ -185,8 +210,13 @@ export default function Register() {
           </p>
         )}
 
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? "Creating account..." : "Create account"}
+        <button
+          type="submit"
+          disabled={isLoading}
+        >
+          {isLoading
+            ? "Creating account..."
+            : "Create account"}
         </button>
       </form>
     </main>

@@ -1,11 +1,5 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-
 import {
   addStockToWatchlist,
   getStocks,
@@ -13,19 +7,14 @@ import {
   getETF,
 } from "../api/ViewerAPI";
 
-// ── Bao ── sort dropdown next to the existing type filter
-import SortSelect from "../features/browse/SortSelect";
-import { sortAssets } from "../features/browse/assetFilters";
+const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-const LETTERS =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-
-function unwrapResponse(response) {
+function getResponseData(response) {
   return response?.data ?? response;
 }
 
-function extractAssets(response) {
-  const data = unwrapResponse(response);
+function getAssetList(response) {
+  const data = getResponseData(response);
 
   if (Array.isArray(data)) {
     return data;
@@ -42,11 +31,7 @@ function extractAssets(response) {
     data?.content,
   ];
 
-  return (
-    possibleLists.find((list) =>
-      Array.isArray(list)
-    ) || []
-  );
+  return possibleLists.find((list) => Array.isArray(list)) || [];
 }
 
 function getSymbol(asset) {
@@ -61,8 +46,6 @@ function getSymbol(asset) {
 }
 
 function getName(asset) {
-  const symbol = getSymbol(asset);
-
   return (
     asset?.name ||
     asset?.Name ||
@@ -73,70 +56,62 @@ function getName(asset) {
     asset?.shortName ||
     asset?.displayName ||
     asset?.description ||
-    symbol ||
+    getSymbol(asset) ||
     "Asset"
   );
 }
 
-function getType(asset, fallbackType) {
+function getAssetType(asset, defaultType) {
   return (
     asset?.type ||
     asset?.assetType ||
     asset?.asset_type ||
     asset?.category ||
-    fallbackType
+    defaultType
   );
 }
 
-function normaliseAsset(asset, fallbackType) {
+function formatAsset(asset, defaultType) {
   return {
     ...asset,
-    symbol: getSymbol(asset),
+    symbol: getSymbol(asset).toUpperCase(),
     name: getName(asset),
-    type: getType(asset, fallbackType),
+    type: getAssetType(asset, defaultType),
   };
 }
 
-function removeDuplicates(assets) {
-  return Array.from(
-    new Map(
-      assets
-        .filter((asset) => asset.symbol)
-        .map((asset) => [
-          asset.symbol.toUpperCase(),
-          asset,
-        ])
-    ).values()
-  );
+function removeDuplicates(assetList) {
+  const uniqueAssets = new Map();
+
+  assetList.forEach((asset) => {
+    if (asset.symbol) {
+      uniqueAssets.set(asset.symbol.toUpperCase(), asset);
+    }
+  });
+
+  return Array.from(uniqueAssets.values());
 }
 
-async function loadByLetters(
-  requestFunction,
-  assetType
-) {
+async function loadAssetsByLetter(requestFunction, assetType) {
   const responses = await Promise.all(
-    LETTERS.map((letter) =>
-      requestFunction(letter)
-    )
+    letters.map((letter) => requestFunction(letter))
   );
 
   const assets = responses.flatMap((response) =>
-    extractAssets(response).map((asset) =>
-      normaliseAsset(asset, assetType)
+    getAssetList(response).map((asset) =>
+      formatAsset(asset, assetType)
     )
   );
 
   return removeDuplicates(assets);
 }
 
-function matchesType(asset, selectedType) {
+function matchesSelectedType(asset, selectedType) {
   if (selectedType === "all") {
     return true;
   }
 
-  const type = String(
-    asset.type || ""
-  ).toLowerCase();
+  const type = String(asset.type || "").toLowerCase();
 
   if (selectedType === "stocks") {
     return (
@@ -147,10 +122,7 @@ function matchesType(asset, selectedType) {
   }
 
   if (selectedType === "etfs") {
-    return (
-      type.includes("etf") ||
-      type.includes("exchange")
-    );
+    return type.includes("etf");
   }
 
   if (selectedType === "crypto") {
@@ -166,84 +138,47 @@ function matchesType(asset, selectedType) {
 
 export default function Stocks() {
   const [assets, setAssets] = useState([]);
-
-  const [selectedType, setSelectedType] =
-    useState("all");
-
-  const [searchTerm, setSearchTerm] =
-    useState("");
-
-  // ── Bao ──
-  const [sortMode, setSortMode] = useState("az");
-
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedType, setSelectedType] = useState("all");
+  const [sortOrder, setSortOrder] = useState("az");
   const [loading, setLoading] = useState(true);
-
-  const [errorMessage, setErrorMessage] =
-    useState("");
-
-  const [addingSymbol, setAddingSymbol] =
-    useState("");
-
-  const [addedSymbols, setAddedSymbols] =
-    useState(new Set());
-
-  const [watchlistMessage, setWatchlistMessage] =
-    useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [watchlistMessage, setWatchlistMessage] = useState("");
+  const [addingSymbol, setAddingSymbol] = useState("");
+  const [addedSymbols, setAddedSymbols] = useState(new Set());
 
   useEffect(() => {
     loadAllAssets();
   }, []);
 
-  const loadAllAssets = async () => {
+  async function loadAllAssets() {
     try {
       setLoading(true);
       setErrorMessage("");
 
-      const [
-        stocks,
-        crypto,
-        etfs,
-      ] = await Promise.all([
-        loadByLetters(
-          getStocks,
-          "Stock"
-        ),
-
-        loadByLetters(
-          getCrypto,
-          "Crypto"
-        ),
-
-        loadByLetters(
-          getETF,
-          "ETF"
-        ),
+      const [stocks, crypto, etfs] = await Promise.all([
+        loadAssetsByLetter(getStocks, "Stock"),
+        loadAssetsByLetter(getCrypto, "Crypto"),
+        loadAssetsByLetter(getETF, "ETF"),
       ]);
 
-      const allAssets = removeDuplicates([
-        ...stocks,
-        ...crypto,
-        ...etfs,
-      ]);
-
-      setAssets(allAssets);
+      setAssets(
+        removeDuplicates([
+          ...stocks,
+          ...crypto,
+          ...etfs,
+        ])
+      );
     } catch (error) {
-      console.error(
-        "Could not load assets:",
-        error
-      );
-
+      console.error("Could not load assets:", error);
       setAssets([]);
-
-      setErrorMessage(
-        "Could not load the available assets."
-      );
+      setErrorMessage("Could not load the available assets.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const addToWatchlist = async (event, asset) => {
+  async function addToWatchlist(event, asset) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -255,8 +190,8 @@ export default function Stocks() {
 
     try {
       setAddingSymbol(symbol);
-      setWatchlistMessage("");
       setErrorMessage("");
+      setWatchlistMessage("");
 
       await addStockToWatchlist({
         symbol,
@@ -265,13 +200,9 @@ export default function Stocks() {
       });
 
       setAddedSymbols((previousSymbols) => {
-        const nextSymbols = new Set(
-          previousSymbols
-        );
-
-        nextSymbols.add(symbol);
-
-        return nextSymbols;
+        const updatedSymbols = new Set(previousSymbols);
+        updatedSymbols.add(symbol);
+        return updatedSymbols;
       });
 
       setWatchlistMessage(
@@ -297,68 +228,55 @@ export default function Stocks() {
     } finally {
       setAddingSymbol("");
     }
-  };
+  }
 
-  const filteredAssets = useMemo(() => {
-    const search = searchTerm
-      .trim()
-      .toLowerCase();
+  const visibleAssets = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
 
-    return assets
-      .filter((asset) =>
-        matchesType(asset, selectedType)
-      )
-      .filter((asset) => {
-        if (!search) {
-          return true;
-        }
+    const filteredAssets = assets.filter((asset) => {
+      const matchesSearch =
+        !search ||
+        asset.symbol.toLowerCase().includes(search) ||
+        asset.name.toLowerCase().includes(search);
 
-        return (
-          asset.symbol
-            .toLowerCase()
-            .includes(search) ||
-          asset.name
-            .toLowerCase()
-            .includes(search)
-        );
-      })
-      .sort((first, second) =>
-        first.symbol
-          .toLowerCase()
-          .localeCompare(
-            second.symbol.toLowerCase()
-          )
+      return (
+        matchesSearch &&
+        matchesSelectedType(asset, selectedType)
       );
+    });
+
+    return filteredAssets.sort((firstAsset, secondAsset) => {
+      const firstValue =
+        firstAsset.symbol.toLowerCase();
+      const secondValue =
+        secondAsset.symbol.toLowerCase();
+
+      if (sortOrder === "za") {
+        return secondValue.localeCompare(firstValue);
+      }
+
+      return firstValue.localeCompare(secondValue);
+    });
   }, [
     assets,
-    selectedType,
     searchTerm,
+    selectedType,
+    sortOrder,
   ]);
-
-  // ── Bao ── applies the chosen order on top of the filtering above
-  const sortedAssets = useMemo(
-    () => sortAssets(filteredAssets, sortMode),
-    [filteredAssets, sortMode]
-  );
 
   return (
     <main className="stocks-page">
-      <p className="eyebrow">
-        EXPLORE MARKETS
-      </p>
+      <p className="eyebrow">EXPLORE MARKETS</p>
 
       <h1>Explore assets</h1>
 
       <p className="stocks-intro">
-        Browse stocks, ETFs, and crypto assets
-        alphabetically.
+        Browse stocks, ETFs, and crypto assets.
       </p>
 
       <section className="asset-search-panel">
         <div className="asset-search-wrapper">
-          <span className="asset-search-icon">
-            ⌕
-          </span>
+          <span className="asset-search-icon">⌕</span>
 
           <input
             className="asset-search-input"
@@ -378,28 +296,22 @@ export default function Stocks() {
             setSelectedType(event.target.value)
           }
         >
-          <option value="all">
-            All assets
-          </option>
-
-          <option value="stocks">
-            Stocks
-          </option>
-
-          <option value="etfs">
-            ETFs
-          </option>
-
-          <option value="crypto">
-            Crypto
-          </option>
+          <option value="all">All assets</option>
+          <option value="stocks">Stocks</option>
+          <option value="etfs">ETFs</option>
+          <option value="crypto">Crypto</option>
         </select>
 
-        {/* ── Bao ── */}
-        <SortSelect
-          value={sortMode}
-          onChange={setSortMode}
-        />
+        <select
+          className="asset-type-select"
+          value={sortOrder}
+          onChange={(event) =>
+            setSortOrder(event.target.value)
+          }
+        >
+          <option value="az">A to Z</option>
+          <option value="za">Z to A</option>
+        </select>
       </section>
 
       {watchlistMessage && (
@@ -417,31 +329,21 @@ export default function Stocks() {
       {loading ? (
         <section className="asset-empty-state">
           <div className="asset-loading-spinner" />
-
-          <p>
-            Loading assets by alphabet...
-          </p>
+          <p>Loading assets...</p>
         </section>
-      ) : sortedAssets.length === 0 ? (
+      ) : visibleAssets.length === 0 ? (
         <section className="asset-empty-state">
           <h2>No assets found</h2>
-
           <p>
-            Try another search or choose a different
-            category.
+            Try another search or select a different category.
           </p>
         </section>
       ) : (
         <section className="asset-list">
-          {sortedAssets.map((asset) => {
-            const symbol =
-              asset.symbol.toUpperCase();
-
-            const isAdding =
-              addingSymbol === symbol;
-
-            const isAdded =
-              addedSymbols.has(symbol);
+          {visibleAssets.map((asset) => {
+            const symbol = asset.symbol.toUpperCase();
+            const isAdding = addingSymbol === symbol;
+            const isAdded = addedSymbols.has(symbol);
 
             return (
               <article
@@ -449,9 +351,7 @@ export default function Stocks() {
                 className="asset-list-item"
               >
                 <Link
-                  to={`/stock/${encodeURIComponent(
-                    symbol
-                  )}`}
+                  to={`/stock/${encodeURIComponent(symbol)}`}
                   className="asset-list-main"
                 >
                   <strong className="asset-list-symbol">
@@ -460,7 +360,6 @@ export default function Stocks() {
 
                   <div className="asset-list-details">
                     <h3>{asset.name}</h3>
-
                     <span>{asset.type}</span>
                   </div>
 
@@ -476,14 +375,9 @@ export default function Stocks() {
                       ? "watchlist-add-button added"
                       : "watchlist-add-button"
                   }
-                  disabled={
-                    isAdding || isAdded
-                  }
+                  disabled={isAdding || isAdded}
                   onClick={(event) =>
-                    addToWatchlist(
-                      event,
-                      asset
-                    )
+                    addToWatchlist(event, asset)
                   }
                 >
                   {isAdding

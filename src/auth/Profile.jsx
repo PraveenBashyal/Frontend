@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
 import { useAuth } from "../api/AuthContext";
-
 import {
   getMyProfile,
   updateEmail,
   updatePhoneNumber,
   updatePassword,
-  deleteAccount,
 } from "../api/ViewerAPI";
 
 export default function Profile() {
@@ -63,9 +60,11 @@ export default function Profile() {
     loadProfile();
   }, []);
 
-  const loadProfile = async () => {
+  async function loadProfile() {
     try {
-      const data = await getMyProfile();
+      const response = await getMyProfile();
+
+      const data = response?.data || response;
 
       const loadedProfile = {
         username:
@@ -117,9 +116,9 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handlePictureChange = (event) => {
+  function handlePictureChange(event) {
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -163,18 +162,18 @@ export default function Profile() {
     };
 
     reader.readAsDataURL(file);
-  };
+  }
 
-  const removePicture = () => {
+  function removePicture() {
     setProfilePicture("");
 
     localStorage.removeItem("profilePicture");
 
     setMessage("Profile picture removed.");
     setErrorMessage("");
-  };
+  }
 
-  const handleEmailSubmit = async (event) => {
+  async function handleEmailSubmit(event) {
     event.preventDefault();
 
     if (!newEmail.trim()) {
@@ -218,9 +217,9 @@ export default function Profile() {
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handlePhoneSubmit = async (event) => {
+  async function handlePhoneSubmit(event) {
     event.preventDefault();
 
     if (!newPhoneNumber.trim()) {
@@ -264,9 +263,9 @@ export default function Profile() {
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handlePasswordSubmit = async (event) => {
+  async function handlePasswordSubmit(event) {
     event.preventDefault();
 
     if (!currentPassword) {
@@ -320,45 +319,12 @@ export default function Profile() {
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handleLogout = () => {
+  function handleLogout() {
     removeToken();
     navigate("/login", { replace: true });
-  };
-
-  const handleDeleteAccount = async () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to permanently delete your account? This action cannot be undone."
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setMessage("");
-      setErrorMessage("");
-
-      await deleteAccount();
-
-      removeToken();
-      navigate("/login", { replace: true });
-    } catch (error) {
-      console.error(
-        "Account deletion failed:",
-        error
-      );
-
-      setErrorMessage(
-        error?.response?.data ||
-          "Could not delete your account."
-      );
-
-      setSaving(false);
-    }
-  };
+  }
 
   if (loading) {
     return (
@@ -617,28 +583,6 @@ export default function Profile() {
               : "Change password"}
           </button>
         </form>
-      </section>
-
-      <section className="delete-account-card">
-        <p className="eyebrow">DANGER ZONE</p>
-
-        <h2>Delete account</h2>
-
-        <p>
-          Permanently delete your account and saved data.
-          This action cannot be undone.
-        </p>
-
-        <button
-          type="button"
-          className="delete-account-button"
-          disabled={saving}
-          onClick={handleDeleteAccount}
-        >
-          {saving
-            ? "Deleting..."
-            : "Delete my account"}
-        </button>
       </section>
 
       <Link

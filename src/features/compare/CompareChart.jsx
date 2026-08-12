@@ -46,9 +46,11 @@ function Tip({ active, payload, label, labelA, labelB }) {
 export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }) {
   const colors = useChartColors();
 
-  // `date` already arrives as a timestamp from our service
-  const toPoints = (series = []) =>
-    series.map((item) => ({ t: item.date, value: item.price }));
+  const toPoints = (series) =>
+    series.map((item) => ({
+      t: new Date(item.recordedAt).getTime(),
+      value: item.price,
+    }));
 
   const a = rebase(toPoints(seriesA));
   const b = rebase(toPoints(seriesB));
@@ -56,31 +58,14 @@ export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }
   // Union of both timelines so neither series is cut short
   const times = [...new Set([...a.keys(), ...b.keys()])].sort((x, y) => x - y);
 
-  // The series is a month of daily closes, so the axis needs the date. A
-  // fixed en-GB format rather than the browser's, which reorders the day
-  // and month depending on where the reader happens to be.
   const data = times.map((t) => ({
-    time: new Date(t).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
+    time: new Date(t).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
     }),
     a: a.get(t) ?? null,
     b: b.get(t) ?? null,
   }));
-
-  // Percent changes are often under 1%, where whole-number ticks collapse
-  // into a column of "0%". One decimal keeps them apart.
-  let biggestMove = 0;
-
-  for (const point of data) {
-    for (const value of [point.a, point.b]) {
-      if (value !== null) {
-        biggestMove = Math.max(biggestMove, Math.abs(value));
-      }
-    }
-  }
-
-  const decimals = biggestMove < 5 ? 1 : 0;
 
   // A thinly traded asset returns a handful of ticks at one price, which
   // draws as a flat line on the 0% gridline and reads as a missing series.
@@ -126,8 +111,8 @@ export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }
             <YAxis
               stroke={colors.axis}
               tick={{ fill: colors.tick, fontSize: 11 }}
-              tickFormatter={(v) => `${v.toFixed(decimals)}%`}
-              width={58}
+              tickFormatter={(v) => `${v.toFixed(0)}%`}
+              width={52}
             />
 
             <Tooltip content={<Tip labelA={labelA} labelB={labelB} />} />
