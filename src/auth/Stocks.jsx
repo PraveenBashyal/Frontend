@@ -363,9 +363,7 @@ export default function Stocks() {
                     <span>{asset.type}</span>
                   </div>
 
-                  <span className="asset-list-arrow">
-                    →
-                  </span>
+                  
                 </Link>
 
                 <button
