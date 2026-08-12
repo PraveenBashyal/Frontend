@@ -25,6 +25,7 @@ import StockDetail from "./auth/StockDetail";
 // rendered outside <Routes>.
 import PortfolioPage from "./features/portfolio/PortfolioPage";
 import ComparePage from "./features/compare/ComparePage";
+import AssetSummaryPage from "./features/summary/AssetSummaryPage";
 import ChatPanel from "./features/assistant/ChatPanel";
 import TutorialPopup from "./features/tutorial/TutorialPopup";
 
@@ -118,6 +119,11 @@ export default function App() {
         <Route
           path="/compare"
           element={<ComparePage />}
+        />
+
+        <Route
+          path="/summary/:symbol"
+          element={<AssetSummaryPage />}
         />
         {/* ── Bao: routes ── end ───────────────────────────────── */}
       </Route>

@@ -4,6 +4,7 @@ import cors from 'cors'
 import { initSchema, ping } from './lib/db.js'
 import { portfolioRouter } from './routes/portfolio.js'
 import { chatRouter } from './routes/chat.js'
+import { marketRouter } from './routes/market.js'
 
 const PORT = Number(process.env.PORT) || 8082
 
@@ -28,6 +29,7 @@ app.get('/health', async (_req, res) => {
 
 app.use('/portfolio', portfolioRouter)
 app.use('/chat', chatRouter)
+app.use('/market', marketRouter)
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }))
 

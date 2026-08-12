@@ -35,12 +35,3 @@ export async function removeHolding(id) {
     throw new Error(describe(error, 'Could not remove the holding'), { cause: error })
   }
 }
-
-export async function sendChatMessage(message, context = {}, history = []) {
-  try {
-    const { data } = await serviceAPI.post('/chat', { message, context, history })
-    return { answer: data.answer, sources: data.sources || [] }
-  } catch (error) {
-    throw new Error(describe(error, 'The assistant is unavailable'), { cause: error })
-  }
-}

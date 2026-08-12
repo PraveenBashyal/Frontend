@@ -179,15 +179,30 @@ export default function UserWatchList({
               value={prices[item.symbol]}
             />
 
-            <button
-              type="button"
-              className="watchlist-remove-button"
-              onClick={(event) =>
-                deleteStock(event, item.symbol)
-              }
-            >
-              Remove
-            </button>
+            <div className="watchlist-item-buttons">
+              {/* The whole row already opens this page, but a button
+                  makes it obvious that it can be opened at all */}
+              <button
+                type="button"
+                className="watchlist-detail-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate(`/summary/${item.symbol}`);
+                }}
+              >
+                About this asset
+              </button>
+
+              <button
+                type="button"
+                className="watchlist-remove-button"
+                onClick={(event) =>
+                  deleteStock(event, item.symbol)
+                }
+              >
+                Remove
+              </button>
+            </div>
           </div>
         </article>
       ))}

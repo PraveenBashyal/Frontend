@@ -2276,3 +2276,102 @@ body.dark-theme {
   color: var(--muted);
   font-size: 13px;
 }
+
+/* Watchlist row: Detail sits beside Remove, same size, quieter colour */
+.watchlist-item-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.watchlist-detail-button {
+  min-height: 34px;
+  padding: 0 12px;
+
+  border: 1px solid var(--green);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--green-dark);
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.watchlist-detail-button:hover {
+  background: var(--green-light);
+}
+
+/* Asset summary page. Prose, not dashboard: one column, generous line
+   height, and a measure capped so long paragraphs stay readable. */
+.summary-section {
+  margin-top: 34px;
+}
+
+.summary-section h2 {
+  margin-top: 6px;
+}
+
+.summary-text {
+  max-width: 72ch;
+  margin-top: 14px;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.75;
+}
+
+.summary-news {
+  display: grid;
+  gap: 26px;
+  margin-top: 22px;
+}
+
+.summary-news-item h3 {
+  max-width: 72ch;
+  font-size: 18px;
+}
+
+.summary-news-item .summary-text {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.summary-news-meta {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.summary-news-meta a {
+  color: var(--green-dark);
+  font-weight: 700;
+}
+
+.summary-news-item + .summary-news-item {
+  padding-top: 26px;
+  border-top: 1px solid var(--border);
+}
+
+/* Sits where the news list used to be, so the row keeps two boxes */
+.summary-invite {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.summary-invite p:not(.eyebrow) {
+  color: var(--muted);
+  max-width: 46ch;
+}
+
+.summary-invite .outline-button {
+  justify-self: center;
+  margin-top: 10px;
+}
+
+/* "About this asset" is wider than "Remove", so the pair needs room to
+   wrap onto its own line rather than squeezing the asset name */
+.watchlist-detail-button {
+  white-space: nowrap;
+}

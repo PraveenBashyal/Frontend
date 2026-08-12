@@ -34,16 +34,24 @@ function priceHolding(row, quote) {
 
 function summarise(holdings) {
   const priced = holdings.filter(h => h.value !== null)
-  const cost   = priced.reduce((sum, h) => sum + h.cost, 0)
-  const value  = priced.reduce((sum, h) => sum + h.value, 0)
+
+  // Cost never depends on a live price, so it covers every holding. Profit
+  // can only weigh the priced ones against what those same ones cost —
+  // measuring them against the full cost would invent a loss. And with
+  // nothing priced the value is unknown, not zero.
+  const cost       = holdings.reduce((sum, h) => sum + h.cost, 0)
+  const pricedCost = priced.reduce((sum, h) => sum + h.cost, 0)
+  const value      = priced.length ? priced.reduce((sum, h) => sum + h.value, 0) : null
 
   return {
     holdings: holdings.length,
     priced:   priced.length,
     cost,
     value,
-    profit:        priced.length ? value - cost : null,
-    profitPercent: cost === 0 ? null : ((value - cost) / cost) * 100,
+    profit:        value === null ? null : value - pricedCost,
+    profitPercent: value === null || pricedCost === 0
+      ? null
+      : ((value - pricedCost) / pricedCost) * 100,
   }
 }
 
@@ -59,7 +67,7 @@ export async function loadPortfolio(username, token) {
   if (rows.length === 0) return { holdings: [], summary: summarise([]) }
 
   const symbols = [...new Set(rows.map(r => r.symbol))]
-  const quotes  = await fetchQuotes(symbols, token)
+  const quotes  = await fetchQuotes(symbols)
   const bySymbol = new Map(quotes.map(q => [q.symbol, q]))
 
   const holdings = rows.map(row => priceHolding(row, bySymbol.get(row.symbol)))
@@ -98,7 +106,7 @@ portfolioRouter.post('/', async (req, res, next) => {
     if (error) return res.status(400).json({ error })
 
     // A symbol with no quote is almost always a typo
-    const [quote] = await fetchQuotes([value.symbol], req.token)
+    const [quote] = await fetchQuotes([value.symbol])
     if (!quote) {
       return res.status(400).json({ error: `No market data found for ${value.symbol}` })
     }

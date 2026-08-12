@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { pool } from '../lib/db.js'
 import { requireAuth } from '../lib/auth.js'
-import { fetchWatchlist, fetchQuotes, fetchNews } from '../lib/upstream.js'
+import { fetchWatchlist, fetchQuotes, fetchNews, symbolsInQuestion } from '../lib/upstream.js'
 import { loadPortfolio } from './portfolio.js'
 import { answer, citations } from '../lib/assistant.js'
 
@@ -14,25 +14,32 @@ const MAX_LENGTH = 500
 const inFlight = new Set()
 
 // Everything the answer may draw on, gathered before the model is asked
-async function gatherFacts(username, token, symbol) {
-  const [portfolio, watchlist] = await Promise.all([
+async function gatherFacts(username, token, symbol, message) {
+  const [portfolio, watchlist, asked] = await Promise.all([
     loadPortfolio(username, token),
     fetchWatchlist(token),
+    // Anything the question named by symbol, looked up in the asset tables
+    symbolsInQuestion(message, token),
   ])
 
-  // The asset on screen first, then holdings, then the watchlist
+  // What the question asked about comes first, then the asset on screen,
+  // then holdings, then the watchlist
   const symbols = [...new Set([
+    ...asked,
     ...(symbol ? [symbol] : []),
     ...portfolio.holdings.map(h => h.symbol),
     ...watchlist.map(w => w.symbol),
   ])].slice(0, 8)
 
+  // News follows the question when it names an asset, the screen otherwise
+  const newsFor = asked[0] || symbol
+
   const [quotes, news] = await Promise.all([
-    fetchQuotes(symbols, token),
-    symbol ? fetchNews(symbol, token) : Promise.resolve([]),
+    fetchQuotes(symbols),
+    newsFor ? fetchNews(newsFor, token) : Promise.resolve([]),
   ])
 
-  return { symbol: symbol || null, portfolio, watchlist, quotes, news }
+  return { symbol: symbol || null, asked, newsFor: newsFor || null, portfolio, watchlist, quotes, news }
 }
 
 chatRouter.get('/history', async (req, res, next) => {
@@ -74,7 +81,7 @@ chatRouter.post('/', async (req, res, next) => {
 
   inFlight.add(req.username)
   try {
-    const facts = await gatherFacts(req.username, req.token, symbol)
+    const facts = await gatherFacts(req.username, req.token, symbol, message)
     const { text, model } = await answer(message, facts, history)
 
     // Stored after the answer, so a failure leaves no half-conversation

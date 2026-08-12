@@ -25,19 +25,28 @@ function usePrices(symbols) {
     if (!symbols.length) return undefined;
 
     let cancelled = false;
-    const queue = [...symbols];
 
-    const worker = async () => {
-      while (queue.length && !cancelled) {
-        const symbol = queue.shift();
-        const quote = await fetchQuote(symbol);
+    // A batch at a time, waiting for each batch before starting the next
+    async function loadInBatches() {
+      for (let start = 0; start < symbols.length; start += AT_ONCE) {
+        if (cancelled) return;
+
+        const batch = symbols.slice(start, start + AT_ONCE);
+        const quotes = await Promise.all(batch.map(fetchQuote));
 
         if (cancelled) return;
-        setPrices((current) => ({ ...current, [symbol]: quote?.price ?? null }));
-      }
-    };
 
-    Array.from({ length: AT_ONCE }, worker);
+        setPrices((current) => {
+          const next = { ...current };
+          batch.forEach((symbol, i) => {
+            next[symbol] = quotes[i]?.price ?? null;
+          });
+          return next;
+        });
+      }
+    }
+
+    loadInBatches();
 
     return () => {
       cancelled = true;

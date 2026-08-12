@@ -11,40 +11,10 @@ import {
   YAxis,
 } from "recharts";
 
-import {
-  getTitle,
-  getNews,
-  getData,
-} from "../api/ViewerAPI";
+import { getData, getTitle } from "../api/ViewerAPI";
 
 // ── Bao ── watchlist and compare buttons under the price
 import AssetActions from "../features/browse/AssetActions";
-
-function getNewsList(response) {
-  const data = response?.data ?? response;
-
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  if (Array.isArray(data?.data)) {
-    return data.data;
-  }
-
-  if (Array.isArray(data?.news)) {
-    return data.news;
-  }
-
-  if (Array.isArray(data?.articles)) {
-    return data.articles;
-  }
-
-  if (Array.isArray(data?.results)) {
-    return data.results;
-  }
-
-  return [];
-}
 
 function formatPrice(value) {
   if (
@@ -96,7 +66,6 @@ export default function StockDetail() {
   const [description, setDescription] =
     useState("");
 
-  const [news, setNews] = useState([]);
   const [marketData, setMarketData] =
     useState(null);
   const [chartData, setChartData] = useState([]);
@@ -119,60 +88,39 @@ export default function StockDetail() {
       setLoading(true);
       setErrorMessage("");
 
-      // ── Bao ── allSettled, not all. The description endpoint returns
-      // 400 for any symbol that is not already in the watchlist, and with
-      // all() that single rejection threw away the price and the news
-      // that had arrived fine, blanking the whole page.
-      const [
-        descriptionResult,
-        newsResult,
-        marketResult,
-      ] = await Promise.allSettled([
-        getTitle(symbol),
-        getNews(symbol),
-        getData(symbol),
-      ]);
+      // ── Bao ── the headlines moved to /summary/:symbol; the short
+      // description stays. allSettled because the description endpoint
+      // returns 400 for any symbol not already in the watchlist, and one
+      // rejection used to blank the whole page.
+      const [titleResult, marketResult] =
+        await Promise.allSettled([
+          getTitle(symbol),
+          getData(symbol),
+        ]);
 
-      const valueOf = (result) =>
-        result.status === "fulfilled"
-          ? result.value
+      const titleData =
+        titleResult.status === "fulfilled"
+          ? titleResult.value?.data
           : null;
 
-      const descriptionResponse = valueOf(
-        descriptionResult
+      setDescription(
+        (typeof titleData === "object"
+          ? titleData?.extract ||
+            titleData?.description ||
+            titleData?.summary
+          : titleData) || ""
       );
 
-      const newsResponse = valueOf(newsResult);
-      const marketResponse = valueOf(marketResult);
+      const marketResponse =
+        marketResult.status === "fulfilled"
+          ? marketResult.value
+          : null;
 
-      // Only the price matters enough to warn about
       if (!marketResponse) {
         setErrorMessage(
           "Could not load prices for this asset."
         );
       }
-
-      const descriptionData =
-        descriptionResponse?.data;
-
-      if (
-        descriptionData &&
-        typeof descriptionData === "object"
-      ) {
-        setDescription(
-          descriptionData.extract ||
-            descriptionData.description ||
-            descriptionData.summary ||
-            "No description available."
-        );
-      } else {
-        setDescription(
-          descriptionData ||
-            "No description available."
-        );
-      }
-
-      setNews(getNewsList(newsResponse));
 
       const result = getChartResult(
         marketResponse
@@ -264,37 +212,30 @@ export default function StockDetail() {
   // minute, not the session. Reading the day figures off it made open,
   // high and low identical whenever nothing traded in that last minute.
   // Yahoo sends the real ones in meta; only open has to be derived.
-  const numbers = (key) =>
-    prices
+  const fromSeries = (key, combine) => {
+    const values = prices
       .map((point) => point[key])
       .filter((value) => typeof value === "number");
 
-  const highest = numbers("high");
-  const lowest = numbers("low");
-  const volumes = numbers("volume");
+    return values.length ? combine(values) : undefined;
+  };
+
+  const sum = (values) =>
+    values.reduce((total, value) => total + value, 0);
 
   const dayOpen = prices[0]?.open;
 
   const dayHigh =
     marketData?.regularMarketDayHigh ??
-    (highest.length
-      ? Math.max(...highest)
-      : undefined);
+    fromSeries("high", (values) => Math.max(...values));
 
   const dayLow =
     marketData?.regularMarketDayLow ??
-    (lowest.length
-      ? Math.min(...lowest)
-      : undefined);
+    fromSeries("low", (values) => Math.min(...values));
 
   const dayVolume =
     marketData?.regularMarketVolume ??
-    (volumes.length
-      ? volumes.reduce(
-          (total, value) => total + value,
-          0
-        )
-      : undefined);
+    fromSeries("volume", sum);
 
   const priceChange =
     currentPrice !== undefined &&
@@ -527,6 +468,7 @@ export default function StockDetail() {
         </div>
       </section>
 
+      {/* ── Bao ── only the headlines moved to /summary/:symbol */}
       <section className="stock-information-grid">
         <article className="stock-detail-card">
           <p className="eyebrow">
@@ -576,74 +518,24 @@ export default function StockDetail() {
           </div>
         </article>
 
-        <article className="stock-detail-card">
-          <p className="eyebrow">
-            LATEST NEWS
+        {/* Takes the slot the news used to fill, and is how someone who
+            landed here finds the longer write-up */}
+        <article className="stock-detail-card summary-invite">
+          <p className="eyebrow">FULL BACKGROUND</p>
+
+          <h2>Read more about {symbol?.toUpperCase()}</h2>
+
+          <p>
+            The complete description and the recent headlines are on the
+            summary page, away from the price and the chart.
           </p>
 
-          <h2>Related news</h2>
-
-          {news.length === 0 ? (
-            <div className="news-placeholder">
-              <div className="news-placeholder-icon">
-                ◌
-              </div>
-
-              <div>
-                <h3>No news available</h3>
-
-                <p>
-                  There are currently no news articles
-                  for this asset.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="stock-news-list">
-              {news.map((article, index) => (
-                <article
-                  className="stock-news-item"
-                  key={
-                    article.id ||
-                    article.url ||
-                    index
-                  }
-                >
-                  <h3>
-                    {article.headline ||
-                      article.title ||
-                      "Market update"}
-                  </h3>
-
-                  {article.summary && (
-                    <p>{article.summary}</p>
-                  )}
-
-                  {article.source && (
-                    <small>
-                      Source: {article.source}
-                    </small>
-                  )}
-
-                  {article.date && (
-                    <small>
-                      {formatDate(article.date)}
-                    </small>
-                  )}
-
-                  {article.url && (
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Read article →
-                    </a>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
+          <Link
+            to={`/summary/${symbol?.toUpperCase()}`}
+            className="outline-button"
+          >
+            Open summary →
+          </Link>
         </article>
       </section>
     </main>

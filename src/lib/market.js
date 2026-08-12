@@ -3,6 +3,7 @@
 // each repeat the same parsing.
 
 import { getStocks, getCrypto, getETF, getData, getNews } from '../api/ViewerAPI'
+import serviceAPI from '../api/serviceAPI'
 
 // Yahoo labels crypto venues "CCC", which means nothing to a reader
 const EXCHANGES = { CCC: 'Crypto' }
@@ -69,6 +70,35 @@ export async function searchAssets(query) {
   })
 
   return found.slice(0, 8)
+}
+
+// A month of daily prices for the comparison chart, through our own
+// service rather than the backend, which only returns a single day.
+export async function fetchCompareAsset(symbol) {
+  const { data } = await serviceAPI.get(`/market/asset/${encodeURIComponent(symbol)}`)
+  return data
+}
+
+// One asset table per type. An empty query still returns a few rows,
+// which is what fills the second compare slot before any typing.
+const BY_TYPE = { Stock: getStocks, Crypto: getCrypto, ETF: getETF }
+
+export async function suggestByType(type, query = '') {
+  const request = BY_TYPE[type]
+  if (!request) return []
+
+  try {
+    const rows = await request(query.trim())
+    if (!Array.isArray(rows)) return []
+
+    return rows.slice(0, 6).map(row => ({
+      symbol: row.symbol,
+      name:   row.securityName || row.symbol,
+      type,
+    }))
+  } catch {
+    return []
+  }
 }
 
 export async function fetchAssetDetail(symbol) {

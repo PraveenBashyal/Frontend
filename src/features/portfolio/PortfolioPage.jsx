@@ -26,8 +26,6 @@ const percent = (value) =>
     ? "—"
     : `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}%`;
 
-// Split rather than parsed: new Date("2026-04-18") is UTC midnight, which
-// reads as the day before in any timezone behind UTC
 const shortDate = (iso) => {
   const [y, m, d] = String(iso || "").split("-");
   return y ? `${d}/${m}/${y}` : "—";
