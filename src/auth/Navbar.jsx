@@ -7,12 +7,10 @@ import { useAuth } from "../api/AuthContext";
 // file: the Tools menu, the Help and Assistant buttons, and the
 // data-tour attributes the guided tour points at. Everything else is
 // Praveen's. Styles for them live under the divider in index.css.
-import { OPEN_CHAT } from "../features/assistant/ChatPanel";
 import { OPEN_TUTORIAL } from "../features/tutorial/TutorialPopup";
 
 // Screens that live under the Tools menu
 const TOOLS = [
-  { to: "/portfolio", label: "Portfolio", hint: "Track what you bought" },
   { to: "/compare",   label: "Compare",   hint: "Two assets side by side" },
 ];
 
@@ -140,15 +138,6 @@ export default function Navbar() {
           Help
         </button>
 
-        <button
-          type="button"
-          className="assistant-button"
-          data-tour="assistant"
-          onClick={() => window.dispatchEvent(new Event(OPEN_CHAT))}
-          title="Ask the assistant about your holdings"
-        >
-          Assistant
-        </button>
         {/* ── Bao: Help and Assistant ── end ────────────────────────── */}
 
         <Link

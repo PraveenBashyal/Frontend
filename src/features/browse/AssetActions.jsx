@@ -7,8 +7,6 @@ import {
   getWatchlist,
 } from "../../api/ViewerAPI";
 
-// The detail page has Yahoo's raw label; the watchlist stores the readable
-// one the markets list writes, so match those.
 const ASSET_TYPES = {
   EQUITY:         "Stock",
   ETF:            "ETF",
@@ -16,10 +14,8 @@ const ASSET_TYPES = {
   CRYPTOCURRENCY: "Crypto",
 };
 
-// The watchlist and compare buttons on an asset's detail page. There is no
-// "is this one saved" endpoint, so the watchlist is read once and searched.
 export default function AssetActions({ symbol, name, type }) {
-  const [saved, setSaved] = useState(null); // null until the check finishes
+  const [saved, setSaved] = useState(null);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -94,7 +90,6 @@ export default function AssetActions({ symbol, name, type }) {
         {label()}
       </button>
 
-      {/* Lands on the compare screen with this asset already in slot A */}
       <Link
         className="outline-button"
         to={`/compare?a=${encodeURIComponent(symbol)}`}

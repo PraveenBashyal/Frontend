@@ -5,9 +5,6 @@ import { fetchChart } from '../lib/yahoo.js'
 export const marketRouter = Router()
 marketRouter.use(requireAuth)
 
-// Daily closes over the asked-for range. The Spring Boot /data endpoint
-// only ever returns one day of one-minute candles, which is too short for
-// a comparison and makes a week's chart show a single date repeated.
 const RANGES = { '1w': '5d', '1mo': '1mo' }
 
 marketRouter.get('/asset/:symbol', async (req, res) => {
@@ -22,8 +19,6 @@ marketRouter.get('/asset/:symbol', async (req, res) => {
   res.json(asset)
 })
 
-// Yahoo only takes fixed windows, so ask for the smallest one that still
-// reaches back to the wanted day.
 function rangeReaching(day) {
   const days = (Date.now() - Date.parse(day)) / 86400000
 
@@ -36,9 +31,6 @@ function rangeReaching(day) {
   return '5y'
 }
 
-// The closing price on a given day, used to fill in the buy price when
-// someone adds a holding. Weekends and holidays have no close, so the
-// last trading day before it is used instead.
 marketRouter.get('/close', async (req, res) => {
   const symbol = String(req.query.symbol || '').toUpperCase()
   const day = String(req.query.date || '')

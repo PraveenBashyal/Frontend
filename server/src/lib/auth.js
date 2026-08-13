@@ -1,8 +1,5 @@
 import jwt from 'jsonwebtoken'
 
-// Tokens are issued by the Spring Boot backend, which signs with HS384.
-// This service only verifies them — it never creates accounts or tokens,
-// so there is one source of identity for the whole app.
 export function requireAuth(req, res, next) {
   const header = req.headers.authorization || ''
 
@@ -15,7 +12,6 @@ export function requireAuth(req, res, next) {
       algorithms: ['HS384'],
     })
 
-    // `sub` is the username the backend put in the token
     req.username = claims.sub
     req.token = header.slice(7)
 
@@ -24,8 +20,7 @@ export function requireAuth(req, res, next) {
     }
     next()
   } catch (error) {
-    // Expired and malformed both mean "sign in again", so both are 401.
-    // The Java filter returns 500 for a bad signature; this does not.
+
     const expired = error.name === 'TokenExpiredError'
     res.status(401).json({
       error: expired ? 'Your session has expired' : 'Invalid session',

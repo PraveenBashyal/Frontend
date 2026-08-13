@@ -13,7 +13,6 @@ import {
 
 import { fetchCompareAsset } from "../../lib/market";
 
-// ── Bao ── watchlist and compare buttons under the price
 import AssetActions from "../browse/AssetActions";
 
 function formatPrice(value) {
@@ -48,9 +47,6 @@ export default function PricePage() {
   const [marketData, setMarketData] =
     useState(null);
 
-  // ── Bao ── only two ranges, and each one asks the service for that
-  // many days. Slicing the old response gave a week of *minutes*, which
-  // is why every date on the axis read the same.
   const [selectedRange, setSelectedRange] =
     useState("1mo");
 
@@ -80,9 +76,6 @@ export default function PricePage() {
     };
   }, [symbol, selectedRange]);
 
-  // ── Bao ── the service returns exactly the asked-for range, so there is
-  // nothing left to slice. Slicing the old response took a number of
-  // one-minute candles, which is why every date on the axis was the same.
   const visibleChartData = useMemo(
     () =>
       (marketData?.history || []).map((point) => ({
@@ -109,9 +102,6 @@ export default function PricePage() {
     );
   }
 
-  // ── Bao ── the last candle is today. The session figures come straight
-  // from Yahoo rather than being derived, since a candle describes one
-  // interval and not the whole day.
   const candles = marketData?.history || [];
   const today = candles[candles.length - 1];
 
@@ -193,7 +183,6 @@ export default function PricePage() {
           </div>
         </div>
 
-        {/* ── Bao ── */}
         <AssetActions
           symbol={symbol?.toUpperCase()}
           name={companyName}
@@ -218,7 +207,7 @@ export default function PricePage() {
           </div>
 
           <div className="chart-range-buttons">
-            {/* ── Bao ── two ranges, and the value is what the service takes */}
+
             {[
               { key: "1w", label: "1W" },
               { key: "1mo", label: "1M" },
@@ -309,7 +298,7 @@ export default function PricePage() {
       </section>
 
       <section className="stock-stats-grid">
-        {/* ── Bao ── day figures, not the last minute's */}
+
         <div className="stock-stat-card">
           <span>Open</span>
           <strong>

@@ -1,7 +1,5 @@
 import { NAME_SORTS } from "./assetFilters";
 
-// Sits next to the asset-type filter and borrows its styling, so the two
-// dropdowns read as one control group.
 export default function SortSelect({ value, onChange, options = NAME_SORTS }) {
   return (
     <select

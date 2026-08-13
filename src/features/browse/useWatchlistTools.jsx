@@ -10,15 +10,11 @@ import {
   sortAssets,
 } from "./assetFilters";
 
-// Yahoo prices one symbol per request, so a few run at a time instead of
-// all at once. A watchlist is short, so this still finishes quickly.
 const AT_ONCE = 4;
 
 function usePrices(symbols) {
   const [prices, setPrices] = useState({});
 
-  // Depend on the joined list rather than the array, which is rebuilt on
-  // every render and would restart the fetch each time.
   const key = symbols.join(",");
 
   useEffect(() => {
@@ -26,7 +22,6 @@ function usePrices(symbols) {
 
     let cancelled = false;
 
-    // A batch at a time, waiting for each batch before starting the next
     async function loadInBatches() {
       for (let start = 0; start < symbols.length; start += AT_ONCE) {
         if (cancelled) return;
@@ -51,14 +46,12 @@ function usePrices(symbols) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [key]);
 
   return prices;
 }
 
-// Returns the toolbar to render above the rows, the rows that survive it,
-// and the prices to show inside them.
 export function useWatchlistTools(items) {
   const [search, setSearch] = useState("");
   const [type, setType]     = useState("all");

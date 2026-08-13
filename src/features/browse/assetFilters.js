@@ -1,6 +1,3 @@
-// Filtering and sorting shared by the markets list and the watchlist, so
-// both screens behave the same way.
-
 export const TYPES = [
   { value: "all",    label: "All assets" },
   { value: "stocks", label: "Stocks" },
@@ -8,8 +5,6 @@ export const TYPES = [
   { value: "crypto", label: "Crypto" },
 ];
 
-// The markets list holds a few hundred assets and there is no endpoint
-// that prices them in one call, so it only offers the name sorts.
 export const NAME_SORTS = [
   { value: "az", label: "Symbol A–Z" },
   { value: "za", label: "Symbol Z–A" },
@@ -22,8 +17,6 @@ export const PRICE_SORTS = [
 
 export const ALL_SORTS = [...NAME_SORTS, ...PRICE_SORTS];
 
-// The backend labels types inconsistently between tables, so match on
-// words rather than on an exact value.
 const TYPE_WORDS = {
   stocks: ["stock", "equity", "share"],
   etfs:   ["etf", "exchange"],
@@ -47,8 +40,6 @@ export function matchesSearch(symbol, name, search) {
   );
 }
 
-// priceOf is only consulted by the price sorts. An asset whose price has
-// not arrived goes to the end rather than being treated as worth nothing.
 export function sortAssets(list, mode, priceOf = () => null) {
   const sorted = [...list];
 
