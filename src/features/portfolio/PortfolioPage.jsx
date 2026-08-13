@@ -5,7 +5,10 @@ import {
   fetchPortfolio,
   addHolding,
   removeHolding,
+  fetchCloseOnDate,
 } from "../../lib/portfolio";
+import PortfolioChart from "./PortfolioChart";
+import Allocation from "./Allocation";
 
 const EMPTY_ENTRY = {
   symbol: "",
@@ -26,8 +29,6 @@ const percent = (value) =>
     ? "—"
     : `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}%`;
 
-// Split rather than parsed: new Date("2026-04-18") is UTC midnight, which
-// reads as the day before in any timezone behind UTC
 const shortDate = (iso) => {
   const [y, m, d] = String(iso || "").split("-");
   return y ? `${d}/${m}/${y}` : "—";
@@ -46,11 +47,18 @@ export default function PortfolioPage() {
   const navigate = useNavigate();
 
   const [holdings, setHoldings] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [benchmark, setBenchmark] = useState("SPY");
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [entry, setEntry] = useState(EMPTY_ENTRY);
+
+  // The last price we filled in ourselves. Anything else in the box was
+  // typed by the user, and is left alone.
+  const [suggested, setSuggested] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -61,6 +69,9 @@ export default function PortfolioPage() {
     try {
       const data = await fetchPortfolio();
       setHoldings(data.holdings);
+      setPositions(data.positions || []);
+      setHistory(data.history || []);
+      setBenchmark(data.benchmark || "SPY");
       setSummary(data.summary);
       setError(null);
     } catch (err) {
@@ -104,6 +115,36 @@ export default function PortfolioPage() {
       setBusyId(null);
     }
   }
+
+  // Nobody remembers what they paid to the cent, so the closing price on
+  // the day of the purchase is offered as a starting point.
+  useEffect(() => {
+    const { symbol, buyDate } = entry;
+    if (!symbol.trim() || !buyDate) return undefined;
+
+    let cancelled = false;
+
+    fetchCloseOnDate(symbol.trim().toUpperCase(), buyDate).then((close) => {
+      if (cancelled || close === null) return;
+
+      const price = close.toFixed(2);
+
+      setEntry((current) => {
+        // Only replace an empty box, or one still holding our own guess
+        const untouched =
+          current.buyPrice === "" || current.buyPrice === suggested;
+
+        return untouched ? { ...current, buyPrice: price } : current;
+      });
+
+      setSuggested(price);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.symbol, entry.buyDate]);
 
   const update = (field, value) =>
     setEntry((previous) => ({
@@ -182,6 +223,17 @@ export default function PortfolioPage() {
 
           <label>
             Buy price
+
+            {/* Above the box, not below it: the form aligns its inputs on
+                their bottom edge, so a note underneath would lift this
+                one out of line with the others. */}
+            {suggested && entry.buyPrice === suggested && (
+              <small className="field-hint">
+                Closing price that day — change it if you paid something
+                else.
+              </small>
+            )}
+
             <input
               type="number"
               step="any"
@@ -220,71 +272,98 @@ export default function PortfolioPage() {
           </p>
         </div>
       ) : (
-        <section className="portfolio-list">
-          {holdings.map((holding) => (
-            <article className="side-card portfolio-row" key={holding.id}>
-              <div
-                className="portfolio-asset clickable-asset"
-                onClick={() => navigate(`/stock/${holding.symbol}`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    navigate(`/stock/${holding.symbol}`);
-                  }
-                }}
-              >
-                <strong>{holding.symbol}</strong>
-                <span>{holding.name}</span>
-                {holding.type && <small>{holding.type}</small>}
-              </div>
+        <>
+          <PortfolioChart history={history} benchmark={benchmark} />
 
-              <dl className="portfolio-figures">
-                <div>
-                  <dt>Quantity</dt>
-                  <dd>{holding.quantity}</dd>
+          <Allocation positions={positions} />
+
+          <section className="portfolio-list">
+            {positions.map((position) => (
+              <article className="side-card portfolio-row" key={position.symbol}>
+                <div
+                  className="portfolio-asset clickable-asset"
+                  onClick={() => navigate(`/stock/${position.symbol}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      navigate(`/stock/${position.symbol}`);
+                    }
+                  }}
+                >
+                  <strong>{position.symbol}</strong>
+                  <span>{position.name}</span>
+                  {position.type && <small>{position.type}</small>}
                 </div>
 
-                <div>
-                  <dt>Buy price</dt>
-                  <dd>{money(holding.buyPrice)}</dd>
-                </div>
+                <dl className="portfolio-figures">
+                  <div>
+                    <dt>Quantity</dt>
+                    <dd>{position.quantity}</dd>
+                  </div>
 
-                <div>
-                  <dt>Bought</dt>
-                  <dd>{shortDate(holding.buyDate)}</dd>
-                </div>
+                  <div>
+                    <dt>Average cost</dt>
+                    <dd>{money(position.averageCost)}</dd>
+                  </div>
 
-                <div>
-                  <dt>Now</dt>
-                  <dd>{money(holding.price)}</dd>
-                </div>
+                  <div>
+                    <dt>Now</dt>
+                    <dd>{money(position.price)}</dd>
+                  </div>
 
-                <div>
-                  <dt>Value</dt>
-                  <dd>{money(holding.value)}</dd>
-                </div>
+                  <div>
+                    <dt>Value</dt>
+                    <dd>{money(position.value)}</dd>
+                  </div>
 
-                <div>
-                  <dt>Profit / loss</dt>
-                  <dd className={toneOf(holding.profit)}>
-                    {money(holding.profit)}{" "}
-                    <small>{percent(holding.profitPercent)}</small>
-                  </dd>
-                </div>
-              </dl>
+                  <div>
+                    <dt>Profit / loss</dt>
+                    <dd className={toneOf(position.profit)}>
+                      {money(position.profit)}{" "}
+                      <small>{percent(position.profitPercent)}</small>
+                    </dd>
+                  </div>
+                </dl>
 
-              <button
-                type="button"
-                className="portfolio-remove-button"
-                onClick={() => handleRemove(holding.id)}
-                disabled={busyId === holding.id}
-              >
-                {busyId === holding.id ? "..." : "Remove"}
-              </button>
-            </article>
-          ))}
-        </section>
+                {/* One buy keeps a plain button. Several are listed, so each
+                    can still be removed on its own. */}
+                {position.buys.length === 1 ? (
+                  <button
+                    type="button"
+                    className="portfolio-remove-button"
+                    onClick={() => handleRemove(position.buys[0].id)}
+                    disabled={busyId === position.buys[0].id}
+                  >
+                    {busyId === position.buys[0].id ? "..." : "Remove"}
+                  </button>
+                ) : (
+                  <details className="portfolio-buys">
+                    <summary>{position.buys.length} purchases</summary>
+
+                    {position.buys.map((buy) => (
+                      <div className="portfolio-buy" key={buy.id}>
+                        <span>
+                          {buy.quantity} at {money(buy.buyPrice)} on{" "}
+                          {shortDate(buy.buyDate)}
+                        </span>
+
+                        <button
+                          type="button"
+                          className="portfolio-remove-button"
+                          onClick={() => handleRemove(buy.id)}
+                          disabled={busyId === buy.id}
+                        >
+                          {busyId === buy.id ? "..." : "Remove"}
+                        </button>
+                      </div>
+                    ))}
+                  </details>
+                )}
+              </article>
+            ))}
+          </section>
+        </>
       )}
     </main>
   );

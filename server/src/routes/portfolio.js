@@ -2,6 +2,13 @@ import { Router } from 'express'
 import { pool } from '../lib/db.js'
 import { requireAuth } from '../lib/auth.js'
 import { fetchQuotes } from '../lib/upstream.js'
+import { fetchChart } from '../lib/yahoo.js'
+import {
+  mergePositions,
+  valueHistory,
+  benchmarkWeights,
+  benchmarkLabel,
+} from '../lib/positions.js'
 
 export const portfolioRouter = Router()
 portfolioRouter.use(requireAuth)
@@ -55,7 +62,7 @@ function summarise(holdings) {
   }
 }
 
-export async function loadPortfolio(username, token) {
+export async function loadPortfolio(username) {
   const { rows } = await pool.query(
     `SELECT id, symbol, quantity, buy_price,
             to_char(buy_date, 'YYYY-MM-DD') AS buy_date
@@ -64,19 +71,39 @@ export async function loadPortfolio(username, token) {
       ORDER BY buy_date DESC, id DESC`,
     [username]
   )
-  if (rows.length === 0) return { holdings: [], summary: summarise([]) }
+  if (rows.length === 0) {
+    return { holdings: [], positions: [], summary: summarise([]), history: [] }
+  }
 
   const symbols = [...new Set(rows.map(r => r.symbol))]
-  const quotes  = await fetchQuotes(symbols)
-  const bySymbol = new Map(quotes.map(q => [q.symbol, q]))
+  const quotes = await fetchQuotes(symbols)
 
+  const bySymbol = new Map(quotes.map(q => [q.symbol, q]))
   const holdings = rows.map(row => priceHolding(row, bySymbol.get(row.symbol)))
-  return { holdings, summary: summarise(holdings) }
+  const positions = mergePositions(holdings)
+
+  // The yardstick is mixed to match what the portfolio actually holds
+  const weights = benchmarkWeights(positions)
+
+  const charts = {}
+  await Promise.all(
+    Object.keys(weights).map(async symbol => {
+      charts[symbol] = await fetchChart(symbol, '1mo', '1d')
+    })
+  )
+
+  return {
+    holdings,
+    positions,
+    summary:   summarise(holdings),
+    history:   valueHistory(holdings, quotes, { weights, charts }),
+    benchmark: benchmarkLabel(weights),
+  }
 }
 
 portfolioRouter.get('/', async (req, res, next) => {
   try {
-    res.json(await loadPortfolio(req.username, req.token))
+    res.json(await loadPortfolio(req.username))
   } catch (error) {
     next(error)
   }

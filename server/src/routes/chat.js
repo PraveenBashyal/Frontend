@@ -16,7 +16,7 @@ const inFlight = new Set()
 // Everything the answer may draw on, gathered before the model is asked
 async function gatherFacts(username, token, symbol, message) {
   const [portfolio, watchlist, asked] = await Promise.all([
-    loadPortfolio(username, token),
+    loadPortfolio(username),
     fetchWatchlist(token),
     // Anything the question named by symbol, looked up in the asset tables
     symbolsInQuestion(message, token),

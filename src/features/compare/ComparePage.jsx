@@ -1,20 +1,58 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 
-import { fetchAssetDetail, searchAssets } from "../../lib/market";
+import { fetchCompareAsset, searchAssets, suggestByType } from "../../lib/market";
 import CompareChart from "./CompareChart";
+
+// Two assets side by side.
+//
+//   TABLE   the comparison rows
+//   PICKER  the two search boxes
+//   LOADING one asset per side
+//   PAGE    what gets rendered
+
+// ── TABLE ───────────────────────────────────────────────────────────
+
+// Always en-US: a Vietnamese browser writes 25.32 as "25,325".
+function money(value) {
+  if (value == null) return "—";
+
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function percent(value) {
+  if (value == null) return "—";
+
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
+}
+
+function text(value) {
+  return value || "—";
+}
+
+function score(value) {
+  return value == null ? "Not available" : value.toFixed(2);
+}
 
 // Rows of the side-by-side table. `better` decides which side gets the
 // win marker; null means the row is not a contest.
 const ROWS = [
-  { label: "Price",     get: (a) => a.price,         format: (v) => (v === null ? "—" : `$${v.toLocaleString()}`), better: "high" },
-  { label: "Today",     get: (a) => a.changePercent, format: (v) => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`), better: "high" },
-  { label: "Type",      get: (a) => a.type,          format: (v) => v || "—", better: null },
-  { label: "Market",    get: (a) => a.market,        format: (v) => v || "—", better: null },
-  { label: "Sentiment", get: (a) => a.sentimentScore, format: (v) => (v === null ? "Not available" : v.toFixed(2)), better: "high" },
+  { label: "Price",     get: (a) => a.price,          format: money,   better: "high" },
+  { label: "Today",     get: (a) => a.changePercent,  format: percent, better: "high" },
+  { label: "Type",      get: (a) => a.type,           format: text,    better: null },
+  { label: "Market",    get: (a) => a.market,         format: text,    better: null },
+  { label: "Sentiment", get: (a) => a.sentimentScore, format: score,   better: "high" },
 ];
 
-function Picker({ side, value, onPick }) {
+// ── PICKER ──────────────────────────────────────────────────────────
+// The second slot gets `matchType` once the first is chosen, so it only
+// offers assets of the same kind.
+
+function Picker({ side, value, matchType, exclude, onPick }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
@@ -25,13 +63,21 @@ function Picker({ side, value, onPick }) {
     let cancelled = false;
 
     const timer = setTimeout(async () => {
-      if (!q) {
-        if (!cancelled) setResults([]);
-        return;
-      }
       try {
-        const found = await searchAssets(q);
-        if (!cancelled) setResults(found);
+        // With a type to match, an empty box still lists that type.
+        // Without one, nothing shows until something is typed.
+        let found = [];
+
+        if (matchType) {
+          found = await suggestByType(matchType, q);
+        } else if (q) {
+          found = await searchAssets(q);
+        }
+
+        // Nothing is gained by comparing an asset with itself
+        const usable = found.filter((asset) => asset.symbol !== exclude);
+
+        if (!cancelled) setResults(usable);
       } catch {
         if (!cancelled) setResults([]);
       }
@@ -41,7 +87,7 @@ function Picker({ side, value, onPick }) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, matchType, exclude]);
 
   return (
     <div className="compare-picker">
@@ -55,11 +101,11 @@ function Picker({ side, value, onPick }) {
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
 
-      {/* A placeholder reads as a hint, not a choice, which matters when
-          this page is opened from an asset with one side already set. */}
+      {/* A placeholder reads as a hint, not a choice */}
       {value && (
         <p className="compare-picked">
           Selected <strong>{value}</strong>
@@ -90,6 +136,40 @@ function Picker({ side, value, onPick }) {
   );
 }
 
+// ── LOADING ─────────────────────────────────────────────────────────
+// One side at a time. Loading both together meant nothing arrived until
+// both were chosen, so the second picker never learnt the first one's type.
+
+function useAsset(symbol) {
+  // One piece of state, written only after a request settles, and used
+  // only while it still matches the symbol being asked for.
+  const [result, setResult] = useState({ symbol: "", asset: null, failed: false });
+
+  useEffect(() => {
+    if (!symbol) return undefined;
+
+    let cancelled = false;
+
+    fetchCompareAsset(symbol)
+      .then((asset) => !cancelled && setResult({ symbol, asset, failed: false }))
+      .catch(() => !cancelled && setResult({ symbol, asset: null, failed: true }));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
+
+  const current = result.symbol === symbol;
+
+  return {
+    asset:   current ? result.asset : null,
+    failed:  current && result.failed,
+    loading: Boolean(symbol) && !current,
+  };
+}
+
+// ── PAGE ────────────────────────────────────────────────────────────
+
 export default function ComparePage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
@@ -97,42 +177,17 @@ export default function ComparePage() {
   const symbolA = params.get("a") || "";
   const symbolB = params.get("b") || "";
 
-  const [assetA, setAssetA] = useState(null);
-  const [assetB, setAssetB] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const a = useAsset(symbolA);
+  const b = useAsset(symbolB);
 
-  // Nothing before the first await calls setState, to avoid a cascading
-  // render when this is called from useEffect.
-  const loadData = useCallback(async () => {
-    if (!symbolA || !symbolB) {
-      setAssetA(null);
-      setAssetB(null);
-      return;
-    }
+  const assetA = a.asset;
+  const assetB = b.asset;
+  const loading = a.loading || b.loading;
 
-    setLoading(true);
-    try {
-      const [a, b] = await Promise.all([
-        fetchAssetDetail(symbolA),
-        fetchAssetDetail(symbolB),
-      ]);
-      setAssetA(a);
-      setAssetB(b);
-      setError(null);
-    } catch (err) {
-      setError(`Could not load the comparison: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [symbolA, symbolB]);
-
-  // Disabled because the rule follows the call graph and flags loadData
-  // even though its setState calls all happen after an await.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadData();
-  }, [loadData]);
+  const error =
+    a.failed || b.failed
+      ? `Could not load ${[a.failed && symbolA, b.failed && symbolB].filter(Boolean).join(" and ")}.`
+      : null;
 
   function pick(side, symbol) {
     const next = new URLSearchParams(params);
@@ -170,8 +225,20 @@ export default function ComparePage() {
       </section>
 
       <section className="compare-pickers">
-        <Picker side="First asset" value={symbolA} onPick={(s) => pick("a", s)} />
-        <Picker side="Second asset" value={symbolB} onPick={(s) => pick("b", s)} />
+        <Picker
+          side="First asset"
+          value={symbolA}
+          exclude={symbolB}
+          onPick={(s) => pick("a", s)}
+        />
+
+        <Picker
+          side="Second asset"
+          value={symbolB}
+          matchType={assetA?.type}
+          exclude={symbolA}
+          onPick={(s) => pick("b", s)}
+        />
       </section>
 
       {error && <p className="form-error">{error}</p>}
@@ -224,8 +291,8 @@ export default function ComparePage() {
 
           <CompareChart
             title="Price, rebased to % change"
-            seriesA={assetA.priceHistory}
-            seriesB={assetB.priceHistory}
+            seriesA={assetA.history}
+            seriesB={assetB.history}
             labelA={assetA.symbol}
             labelB={assetB.symbol}
           />

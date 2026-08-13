@@ -2,7 +2,8 @@
 // compare and assistant screens expect. Kept here so those screens do not
 // each repeat the same parsing.
 
-import { getStocks, getCrypto, getETF, getData, getNews } from '../api/ViewerAPI'
+import { getStocks, getCrypto, getETF, getData } from '../api/ViewerAPI'
+import serviceAPI from '../api/serviceAPI'
 
 // Yahoo labels crypto venues "CCC", which means nothing to a reader
 const EXCHANGES = { CCC: 'Crypto' }
@@ -46,55 +47,59 @@ export async function fetchQuote(symbol) {
   }
 }
 
-// Searches all three asset types at once, since the user does not
-// necessarily know which one a symbol belongs to
-export async function searchAssets(query) {
-  const q = query.trim()
-  if (!q) return []
+// The stock table holds ETFs too — the CSV it was imported from had no
+// type column — so the table a row came from is not a reliable label.
+// The name is: a fund carries "ETF" in its registered name.
+function assetType(name, fromTable) {
+  return /\bETF\b/i.test(name) ? 'ETF' : fromTable
+}
 
+// All three tables at once, since the user does not necessarily know
+// which one a symbol belongs to
+async function searchEveryTable(query) {
   const results = await Promise.allSettled([
-    getStocks(q), getCrypto(q), getETF(q),
+    getStocks(query), getCrypto(query), getETF(query),
   ])
 
-  const types = ['Stock', 'Crypto', 'ETF']
+  const tables = ['Stock', 'Crypto', 'ETF']
   const found = []
 
   results.forEach((result, i) => {
     if (result.status !== 'fulfilled' || !Array.isArray(result.value)) return
-    result.value.forEach(item => found.push({
-      symbol: item.symbol,
-      name:   item.securityName || item.symbol,
-      type:   types[i],
-    }))
+
+    result.value.forEach(row => {
+      const name = row.securityName || row.symbol
+      found.push({ symbol: row.symbol, name, type: assetType(name, tables[i]) })
+    })
   })
 
-  return found.slice(0, 8)
+  return found
 }
 
-export async function fetchAssetDetail(symbol) {
-  const [quoteResult, newsResult] = await Promise.allSettled([
-    fetchQuote(symbol),
-    getNews(symbol),
-  ])
+export async function searchAssets(query) {
+  const q = query.trim()
+  if (!q) return []
 
-  const quote = quoteResult.status === 'fulfilled' ? quoteResult.value : null
-  const news  = newsResult.status === 'fulfilled' && Array.isArray(newsResult.value?.data)
-    ? newsResult.value.data.slice(0, 5)
-    : []
+  return (await searchEveryTable(q)).slice(0, 8)
+}
 
-  return {
-    symbol,
-    name:   quote?.name   || symbol,
-    type:   quote?.type   || 'Stock',
-    market: quote?.market || '—',
-    price:  quote?.price  ?? null,
-    changePercent: quote?.changePercent ?? null,
-    priceHistory:  quote?.history || [],
-    news,
-    // The analysis service is not connected, so these stay empty
-    sentimentScore:   null,
-    sentimentHistory: [],
-    mood:       'No data',
-    prediction: null,
+// A month of daily prices for the comparison chart, through our own
+// service rather than the backend, which only returns a single day.
+export async function fetchCompareAsset(symbol, range = '1mo') {
+  const { data } = await serviceAPI.get(
+    `/market/asset/${encodeURIComponent(symbol)}?range=${range}`
+  )
+  return data
+}
+
+// Fills the second compare slot. Searching only the matching table would
+// miss the ETFs sitting in the stock table, so search all three and keep
+// what really is the wanted type.
+export async function suggestByType(type, query = '') {
+  try {
+    const found = await searchEveryTable(query.trim())
+    return found.filter(asset => asset.type === type).slice(0, 6)
+  } catch {
+    return []
   }
 }

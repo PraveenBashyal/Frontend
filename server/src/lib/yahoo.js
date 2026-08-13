@@ -17,10 +17,30 @@ function shape(payload, symbol) {
   if (!result) return null
 
   const meta = result.meta || {}
-  const closes = result.indicators?.quote?.[0]?.close || []
+  const candles = result.indicators?.quote?.[0] || {}
   const price = meta.regularMarketPrice ?? null
   const previous = meta.chartPreviousClose ?? null
   const exchange = meta.fullExchangeName || meta.exchangeName || ''
+
+  // One point per interval, skipping the gaps Yahoo leaves on closed days.
+  // `price` is the close, which is what the charts draw; the rest is there
+  // for the detail page's figures.
+  const history = (result.timestamp || [])
+    .map((seconds, i) => ({
+      date:   seconds * 1000,
+      price:  candles.close?.[i],
+      open:   candles.open?.[i] ?? null,
+      high:   candles.high?.[i] ?? null,
+      low:    candles.low?.[i] ?? null,
+      volume: candles.volume?.[i] ?? null,
+    }))
+    .filter(point => typeof point.price === 'number')
+
+  // meta.chartPreviousClose is the close before the *range* starts, not
+  // before today. Asking for a month of data made it a month old, which
+  // turned "today's change" into the whole month's change. The candle
+  // before the last one is the real previous close.
+  const previousClose = history.length > 1 ? history[history.length - 2].price : previous
 
   return {
     symbol,
@@ -29,11 +49,20 @@ function shape(payload, symbol) {
     // Yahoo labels crypto venues "CCC", which means nothing to a reader
     market: exchange === 'CCC' ? 'Crypto' : exchange || null,
     price,
-    changePercent: price !== null && previous ? ((price - previous) / previous) * 100 : null,
-    // One point per interval, skipping the gaps Yahoo leaves on closed days
-    history: (result.timestamp || [])
-      .map((seconds, i) => ({ date: seconds * 1000, price: closes[i] }))
-      .filter(point => typeof point.price === 'number'),
+    changePercent: price !== null && previousClose
+      ? ((price - previousClose) / previousClose) * 100
+      : null,
+    history,
+
+    // Session figures, straight from Yahoo rather than derived from the
+    // candles, which describe an interval and not the whole day
+    previousClose,
+    dayHigh:  meta.regularMarketDayHigh ?? null,
+    dayLow:   meta.regularMarketDayLow ?? null,
+    dayVolume: meta.regularMarketVolume ?? null,
+    currency: meta.currency || 'USD',
+    exchange: meta.exchangeName || null,
+    timezone: meta.exchangeTimezoneName || null,
   }
 }
 

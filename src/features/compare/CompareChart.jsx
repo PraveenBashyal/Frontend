@@ -46,11 +46,9 @@ function Tip({ active, payload, label, labelA, labelB }) {
 export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }) {
   const colors = useChartColors();
 
-  const toPoints = (series) =>
-    series.map((item) => ({
-      t: new Date(item.recordedAt).getTime(),
-      value: item.price,
-    }));
+  // `date` already arrives as a timestamp from our service
+  const toPoints = (series = []) =>
+    series.map((item) => ({ t: item.date, value: item.price }));
 
   const a = rebase(toPoints(seriesA));
   const b = rebase(toPoints(seriesB));
@@ -58,20 +56,49 @@ export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }
   // Union of both timelines so neither series is cut short
   const times = [...new Set([...a.keys(), ...b.keys()])].sort((x, y) => x - y);
 
+  // The series is a month of daily closes, so the axis needs the date. A
+  // fixed en-GB format rather than the browser's, which reorders the day
+  // and month depending on where the reader happens to be.
   const data = times.map((t) => ({
-    time: new Date(t).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
+    time: new Date(t).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
     }),
     a: a.get(t) ?? null,
     b: b.get(t) ?? null,
   }));
 
-  // A thinly traded asset returns a handful of ticks at one price, which
-  // draws as a flat line on the 0% gridline and reads as a missing series.
+  // The range both lines have to fit in. It starts at zero because every
+  // series is rebased from there, so zero is always meaningful.
+  let low = 0;
+  let high = 0;
+
+  for (const point of data) {
+    for (const value of [point.a, point.b]) {
+      if (value !== null) {
+        low = Math.min(low, value);
+        high = Math.max(high, value);
+      }
+    }
+  }
+
+  // Padding on both sides, so a line that never moves is drawn inside the
+  // plot rather than along its top or bottom edge. The floor of 0.3 covers
+  // the case where both series are flat and the range would be zero.
+  const padding = Math.max((high - low) * 0.15, 0.3);
+  const domain = [low - padding, high + padding];
+
+  // Percent changes are often under 1%, where whole-number ticks collapse
+  // into a column of "0%". One decimal keeps them apart.
+  const decimals = high - low < 5 ? 1 : 0;
+
+  // A thinly traded asset returns only a handful of points. One point on
+  // its own draws no line at all, so those series get dots instead.
+  const sparse = (series) => series.size > 0 && series.size < 5;
+
   const thin = [
-    a.size > 0 && a.size < 5 ? labelA : null,
-    b.size > 0 && b.size < 5 ? labelB : null,
+    sparse(a) ? labelA : null,
+    sparse(b) ? labelB : null,
   ].filter(Boolean);
 
   return (
@@ -111,8 +138,9 @@ export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }
             <YAxis
               stroke={colors.axis}
               tick={{ fill: colors.tick, fontSize: 11 }}
-              tickFormatter={(v) => `${v.toFixed(0)}%`}
-              width={52}
+              tickFormatter={(v) => `${v.toFixed(decimals)}%`}
+              domain={domain}
+              width={58}
             />
 
             <Tooltip content={<Tip labelA={labelA} labelB={labelB} />} />
@@ -122,7 +150,7 @@ export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }
               dataKey="a"
               stroke={colors.up}
               strokeWidth={2}
-              dot={false}
+              dot={sparse(a) ? { r: 4, fill: colors.up, stroke: colors.up } : false}
               connectNulls
             />
 
@@ -131,7 +159,7 @@ export default function CompareChart({ title, seriesA, seriesB, labelA, labelB }
               dataKey="b"
               stroke={colors.accent}
               strokeWidth={2}
-              dot={false}
+              dot={sparse(b) ? { r: 4, fill: colors.accent, stroke: colors.accent } : false}
               connectNulls
             />
           </LineChart>

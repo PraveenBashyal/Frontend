@@ -5,6 +5,11 @@ import {
   deteleWatchlist,
 } from "../api/ViewerAPI";
 
+// ── Bao ── search/filter/sort toolbar, the live price on each row, and
+// the two buttons that open our own pages for the asset
+import AssetPrice from "../features/browse/AssetPrice";
+import { useWatchlistTools } from "../features/browse/useWatchlistTools";
+
 export default function UserWatchList({
   limit = 0,
   compact = false,
@@ -70,10 +75,14 @@ export default function UserWatchList({
     }
   }
 
+  // ── Bao ── the toolbar is for the full page only; the dashboard shows a
+  // short preview, so it keeps the original order and just gains prices.
+  const { toolbar, visible, prices } = useWatchlistTools(watchlist);
+
   const displayedAssets =
     limit > 0
       ? watchlist.slice(0, limit)
-      : watchlist;
+      : visible;
 
   if (loading) {
     return (
@@ -100,6 +109,10 @@ export default function UserWatchList({
   }
 
   return (
+    <>
+    {/* ── Bao ── */}
+    {limit === 0 && toolbar}
+
     <div
       className={
         compact
@@ -129,17 +142,43 @@ export default function UserWatchList({
             </small>
           </div>
 
-          <button
-            type="button"
-            className="remove-watchlist-button"
-            onClick={(event) =>
-              removeAsset(event, asset.symbol)
-            }
-          >
-            Remove
-          </button>
+          {/* ── Bao ── */}
+          <div className="watchlist-item-side">
+            <AssetPrice value={prices[asset.symbol]} />
+
+            <div className="watchlist-item-buttons">
+              <button
+                type="button"
+                className="watchlist-detail-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate(`/price/${asset.symbol}`);
+                }}
+              >
+                Price
+              </button>
+
+              <button
+                type="button"
+                className="remove-watchlist-button"
+                onClick={(event) =>
+                  removeAsset(event, asset.symbol)
+                }
+              >
+                Remove
+              </button>
+            </div>
+          </div>
         </article>
       ))}
+
+      {/* ── Bao ── everything filtered away */}
+      {displayedAssets.length === 0 && (
+        <p className="watchlist-no-match">
+          No asset in your watchlist matches these filters.
+        </p>
+      )}
     </div>
+    </>
   );
 }

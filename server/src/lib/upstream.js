@@ -35,9 +35,10 @@ export async function fetchWatchlist(token) {
 }
 
 // Straight to Yahoo: the backend's /data endpoint keeps failing to resolve
-// Yahoo's hostname. Five days, so a Monday still has a close to read.
+// Yahoo's hostname. A month of daily closes, because the portfolio chart
+// needs the history and the current price comes with it either way.
 export function fetchQuote(symbol) {
-  return fetchChart(symbol, '5d', '1d')
+  return fetchChart(symbol, '1mo', '1d')
 }
 
 // Five at a time, to stay under Yahoo's rate limit
