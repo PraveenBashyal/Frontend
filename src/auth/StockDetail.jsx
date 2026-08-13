@@ -368,6 +368,20 @@ export default function StockDetail() {
                   : "Add to watchlist"}
             </button>
 
+            {/* ── Bao ── opens the price page: chart, ranges and the
+                session figures, which this page does not show */}
+            <button
+              type="button"
+              className="compare-button"
+              onClick={() =>
+                navigate(
+                  `/price/${symbol.toUpperCase()}`
+                )
+              }
+            >
+              Price details
+            </button>
+
             <button
               type="button"
               className="compare-button"

@@ -163,7 +163,7 @@ export default function UserWatchList({
                   navigate(`/price/${asset.symbol}`);
                 }}
               >
-                Price
+                Price details
               </button>
 
               <button
