@@ -49,8 +49,16 @@ export default function UserWatchList({
   }
 
   function openAssetDetails(symbol) {
-    navigate(`/stock/${symbol}`);
-  }
+  const returnTo = compact
+    ? "/dashboard"
+    : "/watchlist";
+
+  navigate(`/stock/${symbol}`, {
+    state: {
+      returnTo,
+    },
+  });
+}
 
   async function removeAsset(event, symbol) {
     event.stopPropagation();
