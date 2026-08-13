@@ -8,7 +8,12 @@ import {
   valueHistory,
   benchmarkWeights,
   benchmarkLabel,
+  contributions,
 } from '../lib/positions.js'
+
+// Both are drawn on the chart whatever the portfolio holds, so the user
+// can see how each market behaved and read their own line against it.
+const INDEXES = ['SPY', 'BTC-USD']
 
 export const portfolioRouter = Router()
 portfolioRouter.use(requireAuth)
@@ -87,7 +92,7 @@ export async function loadPortfolio(username) {
 
   const charts = {}
   await Promise.all(
-    Object.keys(weights).map(async symbol => {
+    INDEXES.map(async symbol => {
       charts[symbol] = await fetchChart(symbol, '1mo', '1d')
     })
   )
@@ -95,9 +100,11 @@ export async function loadPortfolio(username) {
   return {
     holdings,
     positions,
-    summary:   summarise(holdings),
-    history:   valueHistory(holdings, quotes, { weights, charts }),
-    benchmark: benchmarkLabel(weights),
+    summary:       summarise(holdings),
+    history:       valueHistory(holdings, quotes, { weights, charts }),
+    benchmark:     benchmarkLabel(weights),
+    indexes:       INDEXES,
+    contributions: contributions(holdings, quotes),
   }
 }
 

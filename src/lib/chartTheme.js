@@ -14,6 +14,9 @@ function readTokens() {
     // --muted is the colour of secondary text and looked like a gridline.
     up:     value("--chart-a", "#7aa300"),
     accent: value("--chart-b", "#2f6fd0"),
+    // A third line was needed once the portfolio chart began drawing both
+    // indexes separately rather than one blended one
+    violet: value("--chart-c", "#a06bd6"),
 
     down:   value("--red", "#d84a5d"),
     grid:   value("--border", "#d5dee6"),

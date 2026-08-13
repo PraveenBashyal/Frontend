@@ -19,6 +19,7 @@ export async function fetchPortfolio() {
       positions: data.positions || [],
       history:   data.history || [],
       benchmark: data.benchmark || 'SPY',
+      indexes:   data.indexes || [],
       summary:   data.summary || {},
     }
   } catch (error) {

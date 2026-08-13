@@ -112,7 +112,7 @@ export function valueHistory(holdings, quotes, benchmark) {
       day,
       value: total,
       growth,
-      benchmark: benchmarkOnDay(day),
+      ...benchmarkOnDay(day),
     }
   })
 
@@ -166,35 +166,131 @@ export function benchmarkLabel(weights) {
 function benchmarkReader(benchmark, days) {
   const { weights = {}, charts = {} } = benchmark || {}
 
-  // day -> price, per index, with the first known price kept as the base
-  const series = Object.keys(weights).map(symbol => {
+  const series = Object.keys(charts).map(symbol => {
     const byDay = new Map(
       (charts[symbol]?.history || []).map(point => [dayOf(point.date), point.price])
     )
 
     const first = days.map(day => byDay.get(day)).find(price => price !== undefined)
 
-    return { weight: weights[symbol], byDay, first, last: first }
+    return { symbol, weight: weights[symbol] || 0, byDay, first, last: first }
   })
 
-  if (series.every(one => one.first === undefined)) return () => null
+  if (series.every(one => one.first === undefined)) {
+    return () => ({ benchmark: null, indexes: {} })
+  }
 
   return day => {
     let blended = 0
+    const indexes = {}
 
     for (const one of series) {
       if (one.first === undefined) continue
 
       one.last = one.byDay.get(day) ?? one.last
-      blended += one.weight * ((one.last - one.first) / one.first) * 100
+
+      const change = ((one.last - one.first) / one.first) * 100
+
+      blended += one.weight * change
+      indexes[one.symbol] = 100 * (1 + change / 100)
     }
 
-    // A value rather than a percentage, so the chart rebases it the same
-    // way it rebases the portfolio
-    return 100 * (1 + blended / 100)
+    return { benchmark: 100 * (1 + blended / 100), indexes }
   }
 }
 
 function dayOf(timestamp) {
   return new Date(timestamp).toISOString().slice(0, 10)
+}
+
+// ── CONTRIBUTION ────────────────────────────────────────────────────
+
+// "The portfolio rose 5.4%" does not say what caused it. This splits the
+// move between the holdings: what each one gained or lost in money over
+// the window.
+//
+// A holding is measured from the first day of the window, or from the day
+// it was bought if that is later, so money paid in is never counted as a
+// gain. The figures are money rather than percentage points, because a
+// holding bought partway through has a different starting date from the
+// rest and the points would not add up to the headline figure.
+export function contributions(holdings, quotes) {
+  const pricesBySymbol = new Map()
+
+  for (const quote of quotes) {
+    pricesBySymbol.set(
+      quote.symbol,
+      new Map((quote.history || []).map(point => [dayOf(point.date), point.price]))
+    )
+  }
+
+  const days = [...new Set(quotes.flatMap(q => (q.history || []).map(p => dayOf(p.date))))].sort()
+  if (days.length < 2) return []
+
+  const priceOn = (symbol, from) => {
+    const byDay = pricesBySymbol.get(symbol)
+    if (!byDay) return null
+
+    // The first trading day at or after the one asked for
+    for (const day of days) {
+      if (day < from) continue
+      const price = byDay.get(day)
+      if (price !== undefined) return price
+    }
+    return null
+  }
+
+  // Crypto trades every day and shares do not, so the last day of the run
+  // often has no close for a share. Each symbol uses its own latest one.
+  const latestPrice = symbol => {
+    const byDay = pricesBySymbol.get(symbol)
+    if (!byDay) return null
+
+    for (let i = days.length - 1; i >= 0; i -= 1) {
+      const price = byDay.get(days[i])
+      if (price !== undefined) return price
+    }
+    return null
+  }
+
+  const bySymbol = new Map()
+  let startTotal = 0
+
+  for (const holding of holdings) {
+    const from = holding.buyDate > days[0] ? holding.buyDate : days[0]
+
+    const startPrice = priceOn(holding.symbol, from)
+    const endPrice = latestPrice(holding.symbol)
+    if (startPrice === null || endPrice === null) continue
+
+    const start = holding.quantity * startPrice
+    const end = holding.quantity * endPrice
+
+    const row = bySymbol.get(holding.symbol) || {
+      symbol: holding.symbol,
+      name: holding.name,
+      type: holding.type,
+      start: 0,
+      end: 0,
+    }
+
+    row.start += start
+    row.end += end
+    bySymbol.set(holding.symbol, row)
+
+    startTotal += start
+  }
+
+  if (startTotal === 0) return []
+
+  return [...bySymbol.values()]
+    .map(row => ({
+      symbol: row.symbol,
+      name: row.name,
+      type: row.type,
+      gain: row.end - row.start,
+      // How the holding itself did, independent of its size
+      percent: row.start === 0 ? null : ((row.end - row.start) / row.start) * 100,
+    }))
+    .sort((a, b) => b.gain - a.gain)
 }

@@ -85,6 +85,36 @@ export function renderFacts(facts) {
     lines.push('Portfolio: empty, the user has not added any holdings.')
   }
 
+  // The same numbers the chart on the Portfolio screen draws, so the
+  // assistant can talk about what the user is looking at.
+  const history = facts.portfolio.history || []
+
+  if (history.length > 1) {
+    const first = history[0]
+    const last = history[history.length - 1]
+    const move = (from, to) => (from ? ((to - from) / from) * 100 : null)
+
+    lines.push('Past month, price movement only, money paid in excluded:')
+    lines.push(`- the portfolio ${percent(move(first.growth, last.growth))}`)
+    lines.push(
+      `- a passive mix in the same proportions (${facts.portfolio.benchmark}) ` +
+      `${percent(move(first.benchmark, last.benchmark))}`
+    )
+
+    for (const symbol of facts.portfolio.indexes || []) {
+      const from = first.indexes?.[symbol]
+      const to = last.indexes?.[symbol]
+      if (from && to) lines.push(`- ${symbol} ${percent(move(from, to))}`)
+    }
+  }
+
+  if (facts.portfolio.contributions?.length) {
+    lines.push('What moved the portfolio over that month, in money:')
+    facts.portfolio.contributions.forEach(c =>
+      lines.push(`- ${c.symbol} ${money(c.gain)} (${percent(c.percent)} on that holding)`)
+    )
+  }
+
   if (facts.watchlist.length) {
     lines.push(`Watchlist: ${facts.watchlist.map(w => w.symbol).join(', ')}.`)
   } else {

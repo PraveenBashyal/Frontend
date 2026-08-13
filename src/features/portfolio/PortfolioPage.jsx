@@ -50,6 +50,7 @@ export default function PortfolioPage() {
   const [positions, setPositions] = useState([]);
   const [history, setHistory] = useState([]);
   const [benchmark, setBenchmark] = useState("SPY");
+  const [indexes, setIndexes] = useState([]);
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -72,6 +73,7 @@ export default function PortfolioPage() {
       setPositions(data.positions || []);
       setHistory(data.history || []);
       setBenchmark(data.benchmark || "SPY");
+      setIndexes(data.indexes || []);
       setSummary(data.summary);
       setError(null);
     } catch (err) {
@@ -273,7 +275,11 @@ export default function PortfolioPage() {
         </div>
       ) : (
         <>
-          <PortfolioChart history={history} benchmark={benchmark} />
+          <PortfolioChart
+            history={history}
+            benchmark={benchmark}
+            indexes={indexes}
+          />
 
           <Allocation positions={positions} />
 

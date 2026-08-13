@@ -296,3 +296,31 @@
   font-weight: 400;
   line-height: 1.35;
 }
+
+/* ── PORTFOLIO CHART ─────────────────────────────────────────────────
+   A third series colour, and a legend whose entries switch a line off */
+:root, body.light-theme { --chart-c: #8b4fc4; }
+body.dark-theme         { --chart-c: #c58bff; }
+
+.legend-toggle {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.legend-toggle:hover {
+  background: var(--soft);
+}
+
+.legend-off {
+  color: var(--muted);
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
