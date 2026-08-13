@@ -10,10 +10,14 @@ import {
 
 import { useChartColors } from "../../lib/chartTheme";
 
-// "Up 40%" means nothing on its own — the whole market may have risen more.
-// Both lines are rebased to percent change from the first day, so the
-// portfolio can be read against the index it could have been bought
+// "Up 40%" means nothing on its own — the whole market may have risen
+// more. Both lines are rebased to percent change from the first day, so
+// the portfolio can be read against the index it could have been bought
 // instead of.
+//
+// The portfolio line follows `growth`, not the raw value: money paid in
+// partway through raises the value without being a gain, and the server
+// has already stripped that out.
 function rebase(rows, pick) {
   const first = rows.map(pick).find((value) => value !== null && value !== undefined);
   if (!first) return () => null;
@@ -47,7 +51,7 @@ export default function PortfolioChart({ history, benchmark }) {
 
   if (history.length < 2) return null;
 
-  const asMine = rebase(history, (row) => row.value);
+  const asMine = rebase(history, (row) => row.growth);
   const asIndex = rebase(history, (row) => row.benchmark);
 
   const data = history.map((row) => ({
@@ -93,7 +97,8 @@ export default function PortfolioChart({ history, benchmark }) {
           Over this month your holdings moved {mine.toFixed(2)}% and{" "}
           {benchmark} moved {index.toFixed(2)}%, so you are{" "}
           {mine >= index ? "ahead of" : "behind"} the index by{" "}
-          {Math.abs(mine - index).toFixed(2)} points.
+          {Math.abs(mine - index).toFixed(2)} points. Money paid in during
+          the month is left out, so this is price movement only.
         </p>
       )}
 

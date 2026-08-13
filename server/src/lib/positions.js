@@ -74,9 +74,18 @@ export function valueHistory(holdings, quotes, benchmark) {
   const lastKnown = new Map()
   const benchmarkOnDay = benchmarkReader(benchmark, days)
 
+  // Paying money in is not a gain, but it does raise the total. So the
+  // day a purchase is recorded, the value of what was just bought is
+  // subtracted before the day's movement is measured, and the daily
+  // movements are multiplied together. That is a time-weighted return,
+  // and it is the only kind that can fairly be set against an index.
+  let growth = 100
+  let yesterday = null
+
   const series = days.map(day => {
     let value = 0
     let counted = 0
+    let boughtToday = 0
 
     for (const holding of holdings) {
       if (holding.buyDate > day) continue
@@ -87,11 +96,22 @@ export function valueHistory(holdings, quotes, benchmark) {
       lastKnown.set(holding.symbol, price)
       value += holding.quantity * price
       counted += 1
+
+      if (holding.buyDate === day) boughtToday += holding.quantity * price
     }
+
+    const total = counted ? value : null
+
+    if (total !== null && yesterday) {
+      growth *= (total - boughtToday) / yesterday
+    }
+
+    if (total !== null) yesterday = total
 
     return {
       day,
-      value: counted ? value : null,
+      value: total,
+      growth,
       benchmark: benchmarkOnDay(day),
     }
   })
