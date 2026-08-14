@@ -9,7 +9,7 @@ export async function sendChatMessage(message, context = {}, history = []) {
   } catch (error) {
     const reason = error.response
       ? error.response.data?.error || 'The assistant is unavailable'
-      : 'Cannot reach the assistant. Is the service running on port 8082?'
+      : 'Cannot reach the assistant. Is the service running on port 8081?'
 
     throw new Error(reason, { cause: error })
   }

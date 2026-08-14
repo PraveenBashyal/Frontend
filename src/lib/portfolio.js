@@ -5,7 +5,7 @@ import serviceAPI from '../api/serviceAPI'
 
 function describe(error, fallback) {
   if (!error.response) {
-    return 'Cannot reach the portfolio service. Is it running on port 8082?'
+    return 'Cannot reach the portfolio service. Is it running on port 8081?'
   }
   return error.response.data?.error || fallback
 }
